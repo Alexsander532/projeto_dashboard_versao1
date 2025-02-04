@@ -189,7 +189,7 @@ export default function Dashboard() {
         sx={{
           flexGrow: 1,
           p: 3,
-          marginLeft: '48px', // Espaço para o sidebar
+          marginLeft: '50px', // Espaço para o sidebar
           height: '100vh',
           overflow: 'auto', // Permite scroll apenas no conteúdo
           bgcolor: 'background.default',
