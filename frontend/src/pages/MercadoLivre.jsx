@@ -1,15 +1,15 @@
 import React from 'react';
+import { Box } from '@mui/material';
+import Dashboard from '../components/Dashboard';
 
-const MercadoLivre = () => {
+export default function MercadoLivre() {
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Mercado Livre</h1>
-      <div className="bg-white rounded-lg shadow p-4">
-        {/* Conteúdo da página */}
-        <p>Conteúdo da página Mercado Livre</p>
-      </div>
-    </div>
+    <Box sx={{ 
+      display: 'flex',
+      height: '100vh',
+      overflow: 'hidden', // Impede scroll na página principal
+    }}>
+      <Dashboard />
+    </Box>
   );
-};
-
-export default MercadoLivre; 
+} 

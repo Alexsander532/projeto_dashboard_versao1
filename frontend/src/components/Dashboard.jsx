@@ -166,22 +166,41 @@ export default function Dashboard() {
   };
 
   return (
-    <Box sx={{ display: 'flex', height: '100vh', bgcolor: 'background.default' }}>
-      <Sidebar open={sidebarOpen} onToggle={handleToggleSidebar} />
+    <Box sx={{ 
+      display: 'flex',
+      width: '100%',
+      height: '100vh',
+    }}>
+      <Sidebar 
+        open={sidebarOpen} 
+        onToggle={handleToggleSidebar}
+        sx={{ 
+          width: 240,
+          flexShrink: 0,
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          height: '100%'
+        }}
+      />
       
       <Box
         component="main"
         sx={{
           flexGrow: 1,
           p: 3,
-          bgcolor: 'background.default',
-          marginLeft: 0,
-          width: '100%',
+          marginLeft: '48px', // Espaço para o sidebar
           height: '100vh',
-          overflow: 'auto'
+          overflow: 'auto', // Permite scroll apenas no conteúdo
+          bgcolor: 'background.default',
         }}
       >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          mb: 3,
+        }}>
           <Typography variant="h4" sx={{ fontWeight: 'bold', color: theme.palette.text.primary }}>
             Mercado Livre
           </Typography>
