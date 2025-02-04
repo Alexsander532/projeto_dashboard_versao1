@@ -11,9 +11,76 @@ import {
   TablePagination,
   useTheme,
   alpha,
+  Typography,
+  Chip,
 } from '@mui/material';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { styled } from '@mui/material/styles';
+import { motion } from 'framer-motion';
+
+// Componente de linha animada
+const AnimatedTableRow = styled(motion.tr)(({ theme }) => ({
+  '&:hover': {
+    backgroundColor: theme.palette.mode === 'dark' 
+      ? 'rgba(255, 255, 255, 0.05)' 
+      : 'rgba(0, 0, 0, 0.02)',
+    transition: 'all 0.3s ease'
+  }
+}));
+
+// Componente de célula estilizada
+const StyledTableCell = styled(TableCell)(({ theme }) => ({
+  padding: '12px 16px',
+  fontSize: '0.875rem',
+  borderBottom: `1px solid ${theme.palette.divider}`,
+  textAlign: 'center',
+  whiteSpace: 'nowrap',
+  '&.header': {
+    backgroundColor: theme.palette.mode === 'dark' 
+      ? theme.palette.grey[900] 
+      : theme.palette.grey[50],
+    fontWeight: 600,
+    color: theme.palette.text.primary,
+    textAlign: 'center'
+  },
+  '&.right-align': {
+    textAlign: 'right'
+  }
+}));
+
+// Chip de envio estilizado
+const EnvioChip = styled(Chip)(({ type, theme }) => {
+  const colors = {
+    FULL: {
+      bg: theme.palette.mode === 'dark' ? 'rgba(76, 175, 80, 0.2)' : 'rgba(76, 175, 80, 0.1)',
+      color: '#4CAF50',
+      border: '1px solid rgba(76, 175, 80, 0.3)'
+    },
+    FLEX: {
+      bg: theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.2)' : 'rgba(33, 150, 243, 0.1)',
+      color: '#2196F3',
+      border: '1px solid rgba(33, 150, 243, 0.3)'
+    },
+    COLETAGEM: {
+      bg: theme.palette.mode === 'dark' ? 'rgba(255, 152, 0, 0.2)' : 'rgba(255, 152, 0, 0.1)',
+      color: '#FF9800',
+      border: '1px solid rgba(255, 152, 0, 0.3)'
+    }
+  };
+
+  const envioColor = colors[type] || colors.FULL;
+
+  return {
+    backgroundColor: envioColor.bg,
+    color: envioColor.color,
+    border: envioColor.border,
+    fontWeight: 500,
+    '&:hover': {
+      backgroundColor: envioColor.bg
+    }
+  };
+});
 
 export default function VendasTable({ vendas }) {
   const theme = useTheme();
@@ -90,109 +157,103 @@ export default function VendasTable({ vendas }) {
       return b.dataObj - a.dataObj;
     });
 
-  const cellStyle = {
-    whiteSpace: 'nowrap',
-    padding: '8px 16px',
-    fontSize: '0.875rem',
-    borderBottom: `1px solid ${theme.palette.divider}`,
-    color: theme.palette.text.primary,
-    backgroundColor: theme.palette.background.paper,
-    textAlign: 'center',
-    '& > *': {
-      margin: '0 auto'
-    }
-  };
-
-  const headerCellStyle = {
-    ...cellStyle,
-    backgroundColor: theme.palette.mode === 'dark' 
-      ? alpha(theme.palette.primary.dark, 0.15)
-      : alpha(theme.palette.primary.light, 0.15),
-    color: theme.palette.text.secondary,
-    fontWeight: 500,
-    padding: '12px 16px',
+  // Animação para as linhas
+  const rowVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: (i) => ({
+      opacity: 1,
+      y: 0,
+      transition: {
+        delay: i * 0.05,
+        duration: 0.3,
+        ease: 'easeOut'
+      }
+    })
   };
 
   return (
-    <Box sx={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'center', 
-      width: '100%',
-      '& .MuiTableCell-root': {
-        textAlign: 'center'
-      }
-    }}>
-      <TableContainer>
-        <Table size="small" sx={{ minWidth: 650 }}>
+    <Paper 
+      elevation={0}
+      sx={{
+        borderRadius: '12px',
+        overflow: 'hidden',
+        border: '1px solid',
+        borderColor: theme.palette.divider,
+        height: 'calc(100vh - 100px)',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
+      <TableContainer sx={{ flexGrow: 1 }}>
+        <Table stickyHeader>
           <TableHead>
             <TableRow>
-              <TableCell sx={headerCellStyle}>Pedido</TableCell>
-              <TableCell sx={headerCellStyle}>Data</TableCell>
-              <TableCell sx={headerCellStyle}>SKU</TableCell>
-              <TableCell sx={headerCellStyle}>Qtd</TableCell>
-              <TableCell sx={headerCellStyle}>Comprado</TableCell>
-              <TableCell sx={headerCellStyle}>Vendido</TableCell>
-              <TableCell sx={headerCellStyle}>Taxas</TableCell>
-              <TableCell sx={headerCellStyle}>Frete</TableCell>
-              <TableCell sx={headerCellStyle}>CTL</TableCell>
-              <TableCell sx={headerCellStyle}>Valor Líquido</TableCell>
-              <TableCell sx={headerCellStyle}>Lucro</TableCell>
-              <TableCell sx={headerCellStyle}>Margem</TableCell>
-              <TableCell sx={headerCellStyle}>Envio</TableCell>
+              <StyledTableCell className="header">Pedido</StyledTableCell>
+              <StyledTableCell className="header">Data</StyledTableCell>
+              <StyledTableCell className="header">SKU</StyledTableCell>
+              <StyledTableCell className="header">Qtd</StyledTableCell>
+              <StyledTableCell className="header">Comprado</StyledTableCell>
+              <StyledTableCell className="header">Vendido</StyledTableCell>
+              <StyledTableCell className="header">Taxas</StyledTableCell>
+              <StyledTableCell className="header">Frete</StyledTableCell>
+              <StyledTableCell className="header">CTL</StyledTableCell>
+              <StyledTableCell className="header">Valor Líquido</StyledTableCell>
+              <StyledTableCell className="header">Lucro</StyledTableCell>
+              <StyledTableCell className="header">Margem</StyledTableCell>
+              <StyledTableCell className="header">Envio</StyledTableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {dadosProcessados
               .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
               .map((venda, index) => (
-                <TableRow 
-                  key={venda.pedido + index}
-                  sx={{
-                    '&:hover': {
-                      backgroundColor: theme.palette.action.hover
-                    }
-                  }}
+                <AnimatedTableRow
+                  key={venda.pedido}
+                  component={motion.tr}
+                  variants={rowVariants}
+                  initial="hidden"
+                  animate="visible"
+                  custom={index}
                 >
-                  <TableCell sx={{ ...cellStyle, color: theme.palette.primary.main }}>{venda.pedido}</TableCell>
-                  <TableCell sx={cellStyle}>{formatarData(venda.data)}</TableCell>
-                  <TableCell sx={cellStyle}>{venda.sku}</TableCell>
-                  <TableCell sx={cellStyle}>{venda.qtd}</TableCell>
-                  <TableCell sx={cellStyle}>{formatarValor(venda.valorComprado)}</TableCell>
-                  <TableCell sx={cellStyle}>{formatarValor(venda.valorVendido)}</TableCell>
-                  <TableCell sx={cellStyle}>{formatarValor(venda.taxas)}</TableCell>
-                  <TableCell sx={cellStyle}>{formatarValor(venda.frete)}</TableCell>
-                  <TableCell sx={cellStyle}>{formatarValor(venda.ctl)}</TableCell>
-                  <TableCell sx={{
-                    ...cellStyle,
-                    color: theme.palette.info.main
-                  }}>
-                    {formatarValor(venda.valorLiquido)}
-                  </TableCell>
-                  <TableCell sx={{
-                    ...cellStyle,
-                    color: theme.palette.success.main
-                  }}>
-                    {formatarValor(venda.lucro)}
-                  </TableCell>
-                  <TableCell sx={{
-                    ...cellStyle,
-                    color: theme.palette.success.main
-                  }}>
-                    {formatarPorcentagem(venda.margem)}%
-                  </TableCell>
-                  <TableCell sx={{
-                    ...cellStyle,
-                    color: theme.palette.success.main
-                  }}>
-                    {venda.envio}
-                  </TableCell>
-                </TableRow>
-            ))}
+                  <StyledTableCell>{venda.pedido}</StyledTableCell>
+                  <StyledTableCell>{formatarData(venda.data)}</StyledTableCell>
+                  <StyledTableCell>{venda.sku}</StyledTableCell>
+                  <StyledTableCell>{venda.qtd}</StyledTableCell>
+                  <StyledTableCell>{formatarValor(venda.valorComprado)}</StyledTableCell>
+                  <StyledTableCell>{formatarValor(venda.valorVendido)}</StyledTableCell>
+                  <StyledTableCell>{formatarValor(venda.taxas)}</StyledTableCell>
+                  <StyledTableCell>{formatarValor(venda.frete)}</StyledTableCell>
+                  <StyledTableCell>{formatarValor(venda.ctl)}</StyledTableCell>
+                  <StyledTableCell>{formatarValor(venda.valorLiquido)}</StyledTableCell>
+                  <StyledTableCell>
+                    <Typography 
+                      color={venda.lucro >= 0 ? 'success.main' : 'error.main'}
+                      fontWeight="medium"
+                    >
+                      {formatarValor(venda.lucro)}
+                    </Typography>
+                  </StyledTableCell>
+                  <StyledTableCell>
+                    <Typography 
+                      color={venda.margem >= 0 ? 'success.main' : 'error.main'}
+                      fontWeight="medium"
+                    >
+                      {formatarPorcentagem(venda.margem)}%
+                    </Typography>
+                  </StyledTableCell>
+                  <StyledTableCell>
+                    <EnvioChip
+                      label={venda.envio}
+                      type={venda.envio}
+                      size="small"
+                    />
+                  </StyledTableCell>
+                </AnimatedTableRow>
+              ))}
           </TableBody>
         </Table>
         <TablePagination
-          rowsPerPageOptions={[10, 25, 50, 100]}
+          rowsPerPageOptions={[50, 100, 200]}
           component="div"
           count={dadosProcessados.length}
           rowsPerPage={rowsPerPage}
@@ -202,6 +263,7 @@ export default function VendasTable({ vendas }) {
           labelRowsPerPage="Linhas por página"
           labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
           sx={{
+            borderTop: `1px solid ${theme.palette.divider}`,
             color: theme.palette.text.secondary,
             '.MuiTablePagination-select': {
               color: theme.palette.text.primary
@@ -212,6 +274,6 @@ export default function VendasTable({ vendas }) {
           }}
         />
       </TableContainer>
-    </Box>
+    </Paper>
   );
 }
