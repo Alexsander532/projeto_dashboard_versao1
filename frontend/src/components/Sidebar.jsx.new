@@ -1,0 +1,112 @@
+import React, { useState } from 'react';
+import {
+  Box,
+  Drawer,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  IconButton,
+  useTheme,
+  Divider,
+} from '@mui/material';
+import {
+  Menu as MenuIcon,
+  Dashboard as DashboardIcon,
+  ShoppingCart as ShoppingCartIcon,
+  Store as StoreIcon,
+  Inventory as InventoryIcon,
+  Assessment as AssessmentIcon,
+  LocalShipping as LocalShippingIcon,
+  Notifications as NotificationsIcon,
+  Settings as SettingsIcon,
+  ShoppingBasket as ShoppingBasketIcon,
+} from '@mui/icons-material';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useAppTheme } from '../contexts/ThemeContext';
+
+export default function Sidebar() {
+  const theme = useTheme();
+  const { isDark } = useAppTheme();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [isHovered, setIsHovered] = useState(false);
+
+  const menuItems = [
+    { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
+    { text: 'Mercado Livre', icon: <ShoppingCartIcon />, path: '/mercado-livre' },
+    { text: 'Magazine Luiza', icon: <StoreIcon />, path: '/magazine-luiza' },
+    { text: 'Estoque', icon: <InventoryIcon />, path: '/estoque' },
+    { text: 'Metas', icon: <AssessmentIcon />, path: '/metas' },
+    { text: 'Produtos', icon: <ShoppingBasketIcon />, path: '/produtos' },
+    { text: 'Pedidos', icon: <LocalShippingIcon />, path: '/pedidos' },
+    { text: 'Alertas', icon: <NotificationsIcon />, path: '/alertas' },
+    { text: 'Configurações', icon: <SettingsIcon />, path: '/configuracoes' },
+  ];
+
+  return (
+    <Drawer
+      variant="permanent"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      sx={{
+        width: isHovered ? 240 : 80,
+        flexShrink: 0,
+        '& .MuiDrawer-paper': {
+          width: isHovered ? 240 : 80,
+          boxSizing: 'border-box',
+          backgroundColor: theme.palette.background.paper,
+          borderRight: `1px solid ${theme.palette.divider}`,
+          overflowX: 'hidden',
+          transition: theme.transitions.create(['width'], {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.standard,
+          }),
+          whiteSpace: 'nowrap',
+        },
+      }}
+    >
+      <List sx={{ pt: 2 }}>
+        {menuItems.map((item) => (
+          <ListItem
+            button
+            key={item.text}
+            onClick={() => navigate(item.path)}
+            sx={{
+              minHeight: 48,
+              px: 2.5,
+              mb: 1,
+              backgroundColor: location.pathname === item.path ? 
+                theme.palette.action.selected : 'transparent',
+              '&:hover': {
+                backgroundColor: theme.palette.action.hover,
+              },
+              justifyContent: isHovered ? 'initial' : 'center',
+            }}
+          >
+            <ListItemIcon
+              sx={{
+                minWidth: 0,
+                mr: isHovered ? 2 : 'auto',
+                justifyContent: 'center',
+                color: location.pathname === item.path ? 
+                  theme.palette.primary.main : theme.palette.text.secondary,
+              }}
+            >
+              {item.icon}
+            </ListItemIcon>
+            <ListItemText 
+              primary={item.text} 
+              sx={{ 
+                opacity: isHovered ? 1 : 0,
+                transition: theme.transitions.create(['opacity'], {
+                  duration: theme.transitions.duration.standard,
+                }),
+              }} 
+            />
+          </ListItem>
+        ))}
+      </List>
+    </Drawer>
+  );
+} 

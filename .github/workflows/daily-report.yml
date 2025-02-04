@@ -1,0 +1,44 @@
+name: Daily Sales Report
+
+on:
+  schedule:
+    - cron: '0 11 * * *'  # Roda às 8:00 BRT (11:00 UTC)
+  workflow_dispatch:  # Permite executar manualmente
+
+jobs:
+  send-report:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v2
+    
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r scripts/requirements.txt
+    
+    - name: Run report script
+      env:
+        DB_DATABASE: ${{ secrets.DB_DATABASE }}
+        DB_USER: ${{ secrets.DB_USER }}
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        DB_HOST: ${{ secrets.DB_HOST }}
+        DB_PORT: ${{ secrets.DB_PORT }}
+        EMAIL_REMETENTE: ${{ secrets.EMAIL_REMETENTE }}
+        EMAIL_SENHA: ${{ secrets.EMAIL_SENHA }}
+        EMAIL_DESTINATARIO: ${{ secrets.EMAIL_DESTINATARIO }}
+        # Twilio credentials
+        TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+        TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+        TWILIO_WHATSAPP_NUMBER: ${{ secrets.TWILIO_WHATSAPP_NUMBER }}
+        WHATSAPP_NUMBER: ${{ secrets.WHATSAPP_NUMBER }}
+        # AWS credentials
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+      run: python scripts/gerar_enviar_relatorio.py
