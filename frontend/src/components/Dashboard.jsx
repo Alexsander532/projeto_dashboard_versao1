@@ -40,8 +40,7 @@ export default function Dashboard() {
     vendasTotais: 0,
     despesas: 0,
     lucroLiquido: 0,
-    totalPedidos: 0,
-    totalUnidades: 0,
+    unidadesVendidas: 0,
     mediaDiariaVendas: 0,
     mediaDiariaLucro: 0,
     crescimentoPeriodo: 0
@@ -55,100 +54,106 @@ export default function Dashboard() {
   const [dadosVendas, setDadosVendas] = useState([]);
 
   useEffect(() => {
-    carregarDados();
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    setDataFinal(new Date());
+    setDataInicial(hoje);
+  }, []);
+
+  useEffect(() => {
+    if (dataInicial && dataFinal) {
+      carregarDados();
+    }
   }, [dataInicial, dataFinal, skuSelecionado]);
 
   const carregarDados = async () => {
     try {
       setLoading(true);
-      const filtros = {
-        dataInicial: dataInicial ? dataInicial.toISOString() : null,
-        dataFinal: dataFinal ? dataFinal.toISOString() : null,
-        sku: skuSelecionado === 'todos' ? null : skuSelecionado
-      };
       
-      // Carrega todos os dados para a tabela sem filtros
       const todosOsDados = await fetchVendasML({});
       setDadosVendas(todosOsDados);
       
-      // Carrega dados filtrados para as métricas
-      const vendas = await fetchVendasML(filtros);
-      console.log('Dados recebidos:', vendas);
-      
-      // Atualiza lista de SKUs únicos
-      const skusUnicos = ['todos', ...new Set(vendas.map(venda => venda.sku))];
-      setSkus(skusUnicos);
-      
-      // Calcula vendas totais (soma de valor_vendido)
-      const vendasTotais = vendas.reduce((sum, venda) => {
-        const valor = parseFloat(venda.valorVendido);
-        return sum + (isNaN(valor) ? 0 : valor);
-      }, 0);
-      
-      // Calcula lucro líquido (soma de lucro)
-      const lucroLiquido = vendas.reduce((sum, venda) => {
-        const lucro = parseFloat(venda.lucro);
-        return sum + (isNaN(lucro) ? 0 : lucro);
-      }, 0);
-      
-      // Calcula despesas (soma de todos os custos)
-      const despesas = vendas.reduce((sum, venda) => {
-        const custos = 
-          parseFloat(venda.valorComprado || 0) +
-          parseFloat(venda.taxas || 0) +
-          parseFloat(venda.frete || 0) +
-          parseFloat(venda.descontos || 0) +
-          parseFloat(venda.ctl || 0) +
-          parseFloat(venda.imposto || 0);
-        return sum + (isNaN(custos) ? 0 : custos);
-      }, 0);
-      
-      // Calcula total de unidades vendidas
-      const totalUnidades = todosOsDados.reduce((sum, venda) => {
-        const unidades = parseInt(venda.unidades) || 0;
-        return sum + unidades;
-      }, 0);
+      // Filtra os dados do período
+      const dadosFiltrados = todosOsDados.filter(venda => {
+        const dataVenda = new Date(venda.data);
+        const dataInicialNorm = new Date(dataInicial);
+        const dataFinalNorm = new Date(dataFinal);
+        
+        dataVenda.setHours(0, 0, 0, 0);
+        dataInicialNorm.setHours(0, 0, 0, 0);
+        dataFinalNorm.setHours(23, 59, 59, 999);
 
-      // Calcula médias diárias
-      const diasUnicos = [...new Set(vendas.map(venda => venda.data.split('T')[0]))];
-      const totalDias = diasUnicos.length || 1;
-      const mediaDiariaVendas = vendasTotais / totalDias;
-      const mediaDiariaLucro = lucroLiquido / totalDias;
+        return dataVenda >= dataInicialNorm && dataVenda <= dataFinalNorm;
+      });
 
-      // Calcula crescimento
-      const vendasOrdenadas = [...vendas].sort((a, b) => new Date(a.data) - new Date(b.data));
-      const metadeDados = Math.floor(vendasOrdenadas.length / 2);
-      const primeiraMetade = vendasOrdenadas.slice(0, metadeDados);
-      const segundaMetade = vendasOrdenadas.slice(metadeDados);
-      
-      const vendasPrimeiraMetade = primeiraMetade.reduce((sum, venda) => {
-        const valor = parseFloat(venda.valorVendido);
-        return sum + (isNaN(valor) ? 0 : valor);
-      }, 0);
-      const vendasSegundaMetade = segundaMetade.reduce((sum, venda) => {
-        const valor = parseFloat(venda.valorVendido);
-        return sum + (isNaN(valor) ? 0 : valor);
-      }, 0);
-      
-      let crescimentoPeriodo = 0;
-      if (vendasPrimeiraMetade > 0) {
-        crescimentoPeriodo = ((vendasSegundaMetade - vendasPrimeiraMetade) / vendasPrimeiraMetade) * 100;
+      if (dadosFiltrados.length === 0) {
+        setMetricas({
+          vendasTotais: 0,
+          despesas: 0,
+          lucroLiquido: 0,
+          unidadesVendidas: 0,
+          mediaDiariaVendas: 0,
+          mediaDiariaLucro: 0,
+          crescimentoPeriodo: 0
+        });
+        return;
       }
 
+      // Calcula as métricas
+      const metricas = dadosFiltrados.reduce((acc, venda) => {
+        // Pega os valores diretamente do banco
+        const valorVendido = Number(venda.valorVendido) || 0;
+        const lucro = Number(venda.lucro) || 0;
+        const unidades = Number(venda.unidades) || 0;
+
+        // Soma os valores
+        acc.vendasTotais += valorVendido;
+        acc.lucroLiquido += lucro;
+        acc.unidadesVendidas += unidades;
+
+        return acc;
+      }, {
+        vendasTotais: 0,
+        lucroLiquido: 0,
+        unidadesVendidas: 0
+      });
+
+      // Calcula médias diárias
+      const dias = Math.max(1, Math.ceil((dataFinal - dataInicial) / (1000 * 60 * 60 * 24)));
+      const mediaDiariaVendas = metricas.vendasTotais / dias;
+      const mediaDiariaLucro = metricas.lucroLiquido / dias;
+
+      // Calcula crescimento
+      const periodoAnteriorInicial = new Date(dataInicial);
+      periodoAnteriorInicial.setDate(periodoAnteriorInicial.getDate() - dias);
+      
+      const dadosPeriodoAnterior = todosOsDados.filter(venda => {
+        const dataVenda = new Date(venda.data);
+        dataVenda.setHours(0, 0, 0, 0);
+        return dataVenda >= periodoAnteriorInicial && dataVenda < dataInicial;
+      });
+
+      const vendasAnteriores = dadosPeriodoAnterior.reduce((total, venda) => 
+        total + (Number(venda.valor_vendido) || 0), 0);
+
+      const crescimentoPeriodo = vendasAnteriores > 0 
+        ? ((metricas.vendasTotais - vendasAnteriores) / vendasAnteriores) * 100 
+        : 0;
+
+      // Atualiza o estado com as métricas calculadas
       setMetricas({
-        vendasTotais,
-        despesas,
-        lucroLiquido,
-        totalPedidos: vendas.length,
-        totalUnidades,
-        mediaDiariaVendas,
-        mediaDiariaLucro,
-        crescimentoPeriodo: isNaN(crescimentoPeriodo) ? 0 : crescimentoPeriodo
+        vendasTotais: Number(metricas.vendasTotais.toFixed(2)),
+        despesas: Number((metricas.vendasTotais - metricas.lucroLiquido).toFixed(2)),
+        lucroLiquido: Number(metricas.lucroLiquido.toFixed(2)),
+        unidadesVendidas: Number(metricas.unidadesVendidas),
+        mediaDiariaVendas: Number(mediaDiariaVendas.toFixed(2)),
+        mediaDiariaLucro: Number(mediaDiariaLucro.toFixed(2)),
+        crescimentoPeriodo: Number(crescimentoPeriodo.toFixed(2))
       });
 
       setLoading(false);
     } catch (error) {
-      console.error('Erro ao calcular métricas:', error);
+      console.error('Erro ao carregar dados:', error);
       setLoading(false);
     }
   };
@@ -277,6 +282,7 @@ export default function Dashboard() {
                     hoje.setHours(0, 0, 0, 0);
                     setDataInicial(hoje);
                     setDataFinal(new Date());
+                    handleCloseFilter();
                   }}
                   sx={{ justifyContent: 'flex-start', textTransform: 'none' }}
                 >
@@ -290,10 +296,9 @@ export default function Dashboard() {
                     const ontem = new Date();
                     ontem.setDate(ontem.getDate() - 1);
                     ontem.setHours(0, 0, 0, 0);
-                    const ontemFim = new Date(ontem);
-                    ontemFim.setHours(23, 59, 59, 999);
                     setDataInicial(ontem);
-                    setDataFinal(ontemFim);
+                    setDataFinal(new Date());
+                    handleCloseFilter();
                   }}
                   sx={{ justifyContent: 'flex-start', textTransform: 'none' }}
                 >
@@ -309,6 +314,7 @@ export default function Dashboard() {
                     seteDias.setHours(0, 0, 0, 0);
                     setDataInicial(seteDias);
                     setDataFinal(new Date());
+                    handleCloseFilter();
                   }}
                   sx={{ justifyContent: 'flex-start', textTransform: 'none' }}
                 >
@@ -324,6 +330,7 @@ export default function Dashboard() {
                     quinzeDias.setHours(0, 0, 0, 0);
                     setDataInicial(quinzeDias);
                     setDataFinal(new Date());
+                    handleCloseFilter();
                   }}
                   sx={{ justifyContent: 'flex-start', textTransform: 'none' }}
                 >
@@ -339,6 +346,7 @@ export default function Dashboard() {
                     trintaDias.setHours(0, 0, 0, 0);
                     setDataInicial(trintaDias);
                     setDataFinal(new Date());
+                    handleCloseFilter();
                   }}
                   sx={{ justifyContent: 'flex-start', textTransform: 'none' }}
                 >
@@ -530,7 +538,7 @@ export default function Dashboard() {
                 Unidades Vendidas
               </Typography>
               <Typography variant="h5" sx={{ color: '#9C27B0', fontWeight: 'bold' }}>
-                {metricas.totalUnidades}
+                {metricas.unidadesVendidas}
               </Typography>
             </Box>
           </Paper>
