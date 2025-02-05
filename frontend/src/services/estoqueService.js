@@ -61,11 +61,9 @@ export const atualizarEstoque = async (sku, produto) => {
     }
 };
 
-export const atualizarQuantidade = async (sku, quantidade) => {
+export const atualizarQuantidade = async (sku, delta) => {
     try {
-        const response = await axios.put(`http://localhost:3001/api/estoque/${sku}/quantidade`, {
-            estoque: Number(quantidade)
-        });
+        const response = await axios.post(`http://localhost:3001/api/estoque/${sku}/quantidade`, { delta });
         return response.data;
     } catch (error) {
         console.error('Erro ao atualizar quantidade:', error);
