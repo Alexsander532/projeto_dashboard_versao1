@@ -30,7 +30,7 @@ import Sidebar from './Sidebar';
 import DashboardCharts from './DashboardCharts';
 import MetricCard from './MetricCard';
 import { fetchVendasML } from '../services/vendasMLService';
-import VendasTable from './VendasTable';
+import VendasTable from './vendasTable';
 
 export default function Dashboard() {
   const theme = useTheme();
