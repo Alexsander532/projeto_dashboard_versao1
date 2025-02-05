@@ -17,6 +17,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { useTheme as useAppTheme } from '../contexts/ThemeContext';
 import { fetchEstoque } from '../services/estoqueService';
+import Sidebar from '../components/Sidebar';
 
 export default function Estoque() {
   const theme = useTheme();
@@ -27,6 +28,7 @@ export default function Estoque() {
     estoqueCritico: 0,
     giroMedio: 0
   });
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const handleMetricasUpdate = (novasMetricas) => {
     const metricasFormatadas = {
@@ -295,82 +297,111 @@ export default function Estoque() {
     return 'estoque alto';
   };
 
+  const handleToggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
   return (
     <Box sx={{ 
       display: 'flex',
-      minHeight: '100vh',
-      backgroundColor: theme => theme.palette.background.default
+      width: '100%',
+      height: '100vh',
     }}>
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        {/* Header */}
-        <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-            Controle de Estoque
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <IconButton onClick={() => setIsDark(!isDark)}>
-              {isDark ? <LightModeIcon /> : <DarkModeIcon />}
-            </IconButton>
-            <IconButton>
-              <NotificationsIcon />
-            </IconButton>
-            <Button
-              variant="contained"
-              startIcon={<PictureAsPdfIcon />}
-              onClick={gerarRelatorio}
-              sx={{
-                backgroundColor: theme.palette.primary.main,
-                '&:hover': {
-                  backgroundColor: theme.palette.primary.dark,
-                },
-              }}
-            >
-              Gerar Relatório
-            </Button>
+      <Sidebar 
+        open={sidebarOpen} 
+        onToggle={handleToggleSidebar}
+        sx={{ 
+          width: 240,
+          flexShrink: 0,
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          height: '100%'
+        }}
+      />
+      
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          marginLeft: '50px',
+          height: '100vh',
+          overflow: 'auto',
+          bgcolor: 'background.default',
+        }}
+      >
+        <Container maxWidth="xl" sx={{ py: 4 }}>
+          {/* Header */}
+          <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+              Controle de Estoque
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <IconButton onClick={() => setIsDark(!isDark)}>
+                {isDark ? <LightModeIcon /> : <DarkModeIcon />}
+              </IconButton>
+              <IconButton>
+                <NotificationsIcon />
+              </IconButton>
+              <Button
+                variant="contained"
+                startIcon={<PictureAsPdfIcon />}
+                onClick={gerarRelatorio}
+                sx={{
+                  backgroundColor: theme.palette.primary.main,
+                  '&:hover': {
+                    backgroundColor: theme.palette.primary.dark,
+                  },
+                }}
+              >
+                Gerar Relatório
+              </Button>
+            </Box>
           </Box>
-        </Box>
 
-        {/* Métricas */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
-            <MetricCard
-              title="Total em Estoque"
-              value={metricas.totalEstoque}
-              icon={<InventoryIcon />}
-              color="#0ea5e9"
-            />
+          {/* Métricas */}
+          <Grid container spacing={3} sx={{ mb: 4 }}>
+            <Grid item xs={12} sm={6} md={3}>
+              <MetricCard
+                title="Total em Estoque"
+                value={metricas.totalEstoque}
+                icon={<InventoryIcon />}
+                color="#0ea5e9"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <MetricCard
+                title="Valor em Estoque"
+                value={metricas.valorTotal}
+                icon={<AttachMoneyIcon />}
+                color="#22c55e"
+                isCurrency
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <MetricCard
+                title="Em Reposição"
+                value={metricas.estoqueCritico}
+                icon={<WarningIcon />}
+                color="#f97316"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <MetricCard
+                title="Giro Médio"
+                value={metricas.giroMedio}
+                icon={<AutorenewIcon />}
+                color="#8b5cf6"
+                decimals={1}
+              />
+            </Grid>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <MetricCard
-              title="Valor em Estoque"
-              value={metricas.valorTotal}
-              icon={<AttachMoneyIcon />}
-              color="#22c55e"
-              isCurrency
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <MetricCard
-              title="Em Reposição"
-              value={metricas.estoqueCritico}
-              icon={<WarningIcon />}
-              color="#f97316"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <MetricCard
-              title="Giro Médio"
-              value={metricas.giroMedio}
-              icon={<AutorenewIcon />}
-              color="#8b5cf6"
-              decimals={1}
-            />
-          </Grid>
-        </Grid>
 
-        {/* Tabela de Estoque */}
-        <EstoqueTable onMetricasUpdate={handleMetricasUpdate} />
-      </Container>
+          {/* Tabela de Estoque */}
+          <EstoqueTable onMetricasUpdate={handleMetricasUpdate} />
+        </Container>
+      </Box>
     </Box>
   );
 }

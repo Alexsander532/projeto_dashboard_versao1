@@ -18,6 +18,7 @@ import {
   BarChart, Bar
 } from 'recharts';
 import axios from 'axios';
+import Sidebar from '../components/Sidebar';
 
 function VisaoGeral() {
   const theme = useTheme();
@@ -44,6 +45,7 @@ function VisaoGeral() {
       categorias: []
     }
   });
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -109,146 +111,175 @@ function VisaoGeral() {
     });
   }, [overviewData]);
 
+  const handleToggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
   return (
     <Box sx={{ 
       display: 'flex',
-      minHeight: '100vh',
-      backgroundColor: theme => theme.palette.background.default
+      width: '100%',
+      height: '100vh',
     }}>
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        {/* Header */}
-        <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography 
-            variant="h4" 
-            sx={{ 
-              fontWeight: 800,
-              background: theme.palette.mode === 'dark'
-                ? 'linear-gradient(45deg, #f1f5f9 30%, #e2e8f0 90%)'
-                : 'linear-gradient(45deg, #1e293b 30%, #334155 90%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              letterSpacing: '-1px'
-            }}
-          >
-            Visão Geral
-          </Typography>
-          
-          {/* Período de Análise */}
-          <Box sx={{ 
-            backgroundColor: theme.palette.background.paper,
-            padding: '8px 16px',
-            borderRadius: '12px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-            border: `1px solid ${theme.palette.divider}`
-          }}>
-            <Typography variant="body2" color="text.secondary">
-              Período: Dezembro/2023
+      <Sidebar 
+        open={sidebarOpen} 
+        onToggle={handleToggleSidebar}
+        sx={{ 
+          width: 240,
+          flexShrink: 0,
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          height: '100%'
+        }}
+      />
+      
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          marginLeft: '50px',
+          height: '100vh',
+          overflow: 'auto',
+          bgcolor: 'background.default',
+        }}
+      >
+        <Container maxWidth="xl" sx={{ py: 4 }}>
+          {/* Header */}
+          <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography 
+              variant="h4" 
+              sx={{ 
+                fontWeight: 800,
+                background: theme.palette.mode === 'dark'
+                  ? 'linear-gradient(45deg, #f1f5f9 30%, #e2e8f0 90%)'
+                  : 'linear-gradient(45deg, #1e293b 30%, #334155 90%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                letterSpacing: '-1px'
+              }}
+            >
+              Visão Geral
             </Typography>
-          </Box>
-        </Box>
-
-        {/* Cards Principais */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} md={3}>
-            <MetricCard
-              title="Vendas Totais"
-              value={overviewData.totalVendas}
-              icon={<AttachMoneyOutlined />}
-              color="#0ea5e9"
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <MetricCard
-              title="Lucro Total"
-              value={overviewData.totalLucro}
-              icon={<ShowChartOutlined />}
-              color="#22c55e"
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <MetricCard
-              title="Total de Pedidos"
-              value={overviewData.totalPedidos}
-              icon={<LocalShippingOutlined />}
-              color="#8b5cf6"
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <MetricCard
-              title="Produtos em Estoque"
-              value={overviewData.estoque.total}
-              icon={<InventoryIcon />}
-              color="#f97316"
-            />
-          </Grid>
-        </Grid>
-
-        {/* Gráficos Principais */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          {/* Tendência de Vendas */}
-          <Grid item xs={12} lg={8}>
-            <Card sx={{ 
-              p: 3, 
-              height: '100%',
-              background: theme.palette.mode === 'dark' 
-                ? 'linear-gradient(180deg, rgba(30,41,59,0.7) 0%, rgba(30,41,59,0.9) 100%)'
-                : 'linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,1) 100%)',
-              backdropFilter: 'blur(20px)',
+            
+            {/* Período de Análise */}
+            <Box sx={{ 
+              backgroundColor: theme.palette.background.paper,
+              padding: '8px 16px',
+              borderRadius: '12px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
               border: `1px solid ${theme.palette.divider}`
             }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Tendência de Vendas por Marketplace
+              <Typography variant="body2" color="text.secondary">
+                Período: Dezembro/2023
               </Typography>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={trendData}>
-                  <defs>
-                    <linearGradient id="ml" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="magalu" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#22c55e" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
-                  <XAxis 
-                    dataKey="data"
-                    tickFormatter={(value) => new Date(value).toLocaleDateString('pt-BR')}
-                  />
-                  <YAxis 
-                    tickFormatter={(value) => new Intl.NumberFormat('pt-BR', {
-                      style: 'currency',
-                      currency: 'BRL',
-                      notation: 'compact'
-                    }).format(value)}
-                  />
-                  <RechartsTooltip 
-                    formatter={(value) => new Intl.NumberFormat('pt-BR', {
-                      style: 'currency',
-                      currency: 'BRL'
-                    }).format(value)}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="Mercado Livre"
-                    stroke="#0ea5e9"
-                    fillOpacity={1}
-                    fill="url(#ml)"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="Magazine Luiza"
-                    stroke="#22c55e"
-                    fillOpacity={1}
-                    fill="url(#magalu)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </Card>
+            </Box>
+          </Box>
+
+          {/* Cards Principais */}
+          <Grid container spacing={3} sx={{ mb: 4 }}>
+            <Grid item xs={12} md={3}>
+              <MetricCard
+                title="Vendas Totais"
+                value={overviewData.totalVendas}
+                icon={<AttachMoneyOutlined />}
+                color="#0ea5e9"
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <MetricCard
+                title="Lucro Total"
+                value={overviewData.totalLucro}
+                icon={<ShowChartOutlined />}
+                color="#22c55e"
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <MetricCard
+                title="Total de Pedidos"
+                value={overviewData.totalPedidos}
+                icon={<LocalShippingOutlined />}
+                color="#8b5cf6"
+              />
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <MetricCard
+                title="Produtos em Estoque"
+                value={overviewData.estoque.total}
+                icon={<InventoryIcon />}
+                color="#f97316"
+              />
+            </Grid>
           </Grid>
-        </Grid>
-      </Container>
+
+          {/* Gráficos Principais */}
+          <Grid container spacing={3} sx={{ mb: 4 }}>
+            {/* Tendência de Vendas */}
+            <Grid item xs={12} lg={8}>
+              <Card sx={{ 
+                p: 3, 
+                height: '100%',
+                background: theme.palette.mode === 'dark' 
+                  ? 'linear-gradient(180deg, rgba(30,41,59,0.7) 0%, rgba(30,41,59,0.9) 100%)'
+                  : 'linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,1) 100%)',
+                backdropFilter: 'blur(20px)',
+                border: `1px solid ${theme.palette.divider}`
+              }}>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  Tendência de Vendas por Marketplace
+                </Typography>
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={trendData}>
+                    <defs>
+                      <linearGradient id="ml" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.1}/>
+                        <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="magalu" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#22c55e" stopOpacity={0.1}/>
+                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke={theme.palette.divider} />
+                    <XAxis 
+                      dataKey="data"
+                      tickFormatter={(value) => new Date(value).toLocaleDateString('pt-BR')}
+                    />
+                    <YAxis 
+                      tickFormatter={(value) => new Intl.NumberFormat('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL',
+                        notation: 'compact'
+                      }).format(value)}
+                    />
+                    <RechartsTooltip 
+                      formatter={(value) => new Intl.NumberFormat('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL'
+                      }).format(value)}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="Mercado Livre"
+                      stroke="#0ea5e9"
+                      fillOpacity={1}
+                      fill="url(#ml)"
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="Magazine Luiza"
+                      stroke="#22c55e"
+                      fillOpacity={1}
+                      fill="url(#magalu)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </Card>
+            </Grid>
+          </Grid>
+        </Container>
+      </Box>
     </Box>
   );
 }
