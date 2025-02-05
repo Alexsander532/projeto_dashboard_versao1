@@ -43,9 +43,6 @@ const StyledTableCell = styled(TableCell)(({ theme }) => ({
     fontWeight: 600,
     color: theme.palette.text.primary,
     textAlign: 'center'
-  },
-  '&.right-align': {
-    textAlign: 'right'
   }
 }));
 
@@ -85,7 +82,7 @@ const EnvioChip = styled(Chip)(({ type, theme }) => {
 export default function VendasTable({ vendas }) {
   const theme = useTheme();
   const [page, setPage] = React.useState(0);
-  const [rowsPerPage, setRowsPerPage] = React.useState(10);
+  const [rowsPerPage, setRowsPerPage] = React.useState(50);
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);

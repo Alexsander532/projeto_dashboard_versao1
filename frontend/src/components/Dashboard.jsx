@@ -9,10 +9,7 @@ import {
   Menu,
   MenuItem,
   TextField,
-  Popover,
-  Stack,
-  FormControl,
-  Select
+  Popover
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -161,23 +158,6 @@ export default function Dashboard() {
     }
   };
 
-  const carregarSkus = async () => {
-    try {
-      const todosOsDados = await fetchVendasML({});
-      // Extrai SKUs únicos e ordena
-      const skusUnicos = [...new Set(todosOsDados.map(venda => venda.sku))]
-        .filter(Boolean) // Remove valores vazios/null
-        .sort();
-      setSkus(skusUnicos);
-    } catch (error) {
-      console.error('Erro ao carregar SKUs:', error);
-    }
-  };
-
-  useEffect(() => {
-    carregarSkus();
-  }, []);
-
   const handleOpenFilter = (event) => {
     setAnchorEl(event.currentTarget);
   };
@@ -284,155 +264,133 @@ export default function Dashboard() {
             vertical: 'top',
             horizontal: 'right',
           }}
-          PaperProps={{
-            sx: {
-              width: 320,
-              borderRadius: '12px',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.15)'
-            }
-          }}
         >
-          <Box sx={{ 
-            p: 3,
-            '& .MuiButton-root': {
-              borderRadius: '8px',
-              textTransform: 'none',
-              py: 1
-            }
-          }}>
-            <Typography variant="h6" sx={{ mb: 3, fontWeight: 'bold' }}>Filtros</Typography>
+          <Box sx={{ p: 2, width: 300 }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>Filtros</Typography>
             
-            {/* Período Predefinido */}
             <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle2" sx={{ 
-                mb: 2, 
-                color: 'text.secondary',
-                fontWeight: 'medium' 
-              }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
                 Período Predefinido
               </Typography>
-              <Stack spacing={1}>
-                {[
-                  { label: 'Hoje', dias: 0 },
-                  { label: 'Ontem', dias: 1 },
-                  { label: 'Últimos 7 dias', dias: 7 },
-                  { label: 'Últimos 15 dias', dias: 15 },
-                  { label: 'Últimos 30 dias', dias: 30 }
-                ].map((periodo) => (
-                  <Button
-                    key={periodo.label}
-                    variant="outlined"
-                    size="small"
-                    onClick={() => {
-                      const dataFinal = new Date();
-                      const dataInicial = new Date();
-                      dataInicial.setDate(dataInicial.getDate() - periodo.dias);
-                      dataInicial.setHours(0, 0, 0, 0);
-                      setDataInicial(dataInicial);
-                      setDataFinal(dataFinal);
-                      handleCloseFilter();
-                    }}
-                    sx={{ 
-                      justifyContent: 'flex-start',
-                      color: 'text.primary',
-                      '&:hover': {
-                        bgcolor: 'action.hover'
-                      }
-                    }}
-                  >
-                    {periodo.label}
-                  </Button>
-                ))}
-              </Stack>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    const hoje = new Date();
+                    hoje.setHours(0, 0, 0, 0);
+                    setDataInicial(hoje);
+                    setDataFinal(new Date());
+                    handleCloseFilter();
+                  }}
+                  sx={{ justifyContent: 'flex-start', textTransform: 'none' }}
+                >
+                  Hoje
+                </Button>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    const ontem = new Date();
+                    ontem.setDate(ontem.getDate() - 1);
+                    ontem.setHours(0, 0, 0, 0);
+                    setDataInicial(ontem);
+                    setDataFinal(new Date());
+                    handleCloseFilter();
+                  }}
+                  sx={{ justifyContent: 'flex-start', textTransform: 'none' }}
+                >
+                  Ontem
+                </Button>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    const seteDias = new Date();
+                    seteDias.setDate(seteDias.getDate() - 7);
+                    seteDias.setHours(0, 0, 0, 0);
+                    setDataInicial(seteDias);
+                    setDataFinal(new Date());
+                    handleCloseFilter();
+                  }}
+                  sx={{ justifyContent: 'flex-start', textTransform: 'none' }}
+                >
+                  Últimos 7 dias
+                </Button>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    const quinzeDias = new Date();
+                    quinzeDias.setDate(quinzeDias.getDate() - 15);
+                    quinzeDias.setHours(0, 0, 0, 0);
+                    setDataInicial(quinzeDias);
+                    setDataFinal(new Date());
+                    handleCloseFilter();
+                  }}
+                  sx={{ justifyContent: 'flex-start', textTransform: 'none' }}
+                >
+                  Últimos 15 dias
+                </Button>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    const trintaDias = new Date();
+                    trintaDias.setDate(trintaDias.getDate() - 30);
+                    trintaDias.setHours(0, 0, 0, 0);
+                    setDataInicial(trintaDias);
+                    setDataFinal(new Date());
+                    handleCloseFilter();
+                  }}
+                  sx={{ justifyContent: 'flex-start', textTransform: 'none' }}
+                >
+                  Últimos 30 dias
+                </Button>
+              </Box>
             </Box>
 
-            {/* Período Personalizado */}
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle2" sx={{ 
-                mb: 2, 
-                color: 'text.secondary',
-                fontWeight: 'medium'
-              }}>
-                Período Personalizado
-              </Typography>
-              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
-                <Stack spacing={2}>
-                  <DatePicker
-                    label="Data Inicial"
-                    value={dataInicial}
-                    onChange={setDataInicial}
-                    format="dd/MM/yyyy"
-                    slotProps={{
-                      textField: {
-                        size: "small",
-                        fullWidth: true,
-                        sx: { bgcolor: 'background.paper' }
-                      }
-                    }}
-                  />
-                  <DatePicker
-                    label="Data Final"
-                    value={dataFinal}
-                    onChange={setDataFinal}
-                    format="dd/MM/yyyy"
-                    slotProps={{
-                      textField: {
-                        size: "small",
-                        fullWidth: true,
-                        sx: { bgcolor: 'background.paper' }
-                      }
-                    }}
-                  />
-                </Stack>
-              </LocalizationProvider>
-            </Box>
-
-            {/* Filtro de SKU */}
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle2" sx={{ 
-                mb: 2, 
-                color: 'text.secondary',
-                fontWeight: 'medium'
-              }}>
-                SKU
-              </Typography>
-              <FormControl fullWidth size="small">
-                <Select
+            <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
+              Período Personalizado
+            </Typography>
+            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <DatePicker
+                  label="Data Inicial"
+                  value={dataInicial}
+                  onChange={setDataInicial}
+                  renderInput={(params) => <TextField {...params} fullWidth size="small" />}
+                  maxDate={new Date()}
+                />
+                <DatePicker
+                  label="Data Final"
+                  value={dataFinal}
+                  onChange={setDataFinal}
+                  renderInput={(params) => <TextField {...params} fullWidth size="small" />}
+                  maxDate={new Date()}
+                  minDate={dataInicial}
+                />
+                <TextField
+                  select
+                  label="SKU"
                   value={skuSelecionado}
                   onChange={(e) => setSkuSelecionado(e.target.value)}
-                  displayEmpty
-                  sx={{ bgcolor: 'background.paper' }}
+                  fullWidth
+                  size="small"
                 >
-                  <MenuItem value="todos">Todos os SKUs</MenuItem>
                   {skus.map((sku) => (
-                    <MenuItem key={sku} value={sku}>{sku}</MenuItem>
+                    <MenuItem key={sku} value={sku}>
+                      {sku === 'todos' ? 'Todos os SKUs' : sku}
+                    </MenuItem>
                   ))}
-                </Select>
-              </FormControl>
-            </Box>
-
-            {/* Botões de ação */}
-            <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
-              <Button
-                fullWidth
-                variant="outlined"
-                onClick={handleCloseFilter}
-                sx={{ color: 'text.primary' }}
-              >
-                Cancelar
-              </Button>
-              <Button
-                fullWidth
-                variant="contained"
-                onClick={handleCloseFilter}
-                sx={{ 
-                  bgcolor: '#00B4D8',
-                  '&:hover': { bgcolor: '#0095b3' }
-                }}
-              >
-                Aplicar
-              </Button>
-            </Stack>
+                </TextField>
+              </Box>
+            </LocalizationProvider>
           </Box>
         </Popover>
 

@@ -1,4 +1,4 @@
-import api from '../config/api';
+import axios from 'axios';
 
 const calcularStatus = (estoque, mediaVendas, minimo) => {
     const estoqueAtual = Number(estoque) || 0;
@@ -14,7 +14,7 @@ const calcularStatus = (estoque, mediaVendas, minimo) => {
 
 export const fetchEstoque = async () => {
     try {
-        const response = await api.get('/api/estoque');
+        const response = await axios.get('http://localhost:3001/api/estoque');
         return response.data.map(item => {
             const estoque = Number(item.estoque) || 0;
             const minimo = Number(item.minimo) || 0;
@@ -43,7 +43,7 @@ export const fetchEstoque = async () => {
 
 export const atualizarEstoque = async (sku, produto) => {
     try {
-        const response = await api.put(`/api/estoque/${sku}`, {
+        const response = await axios.put(`http://localhost:3001/api/estoque/${sku}`, {
             descricao: produto.produto,
             estoque: Number(produto.estoque),
             minimo: Number(produto.minimo),
@@ -63,7 +63,7 @@ export const atualizarEstoque = async (sku, produto) => {
 
 export const atualizarQuantidade = async (sku, quantidade) => {
     try {
-        const response = await api.put(`/api/estoque/${sku}/quantidade`, {
+        const response = await axios.put(`http://localhost:3001/api/estoque/${sku}/quantidade`, {
             estoque: Number(quantidade)
         });
         return response.data;
