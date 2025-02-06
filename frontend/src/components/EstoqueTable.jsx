@@ -23,7 +23,12 @@ import {
   Slider,
   Button,
   CircularProgress,
-  useTheme
+  useTheme,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  alpha
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -590,40 +595,123 @@ export default function EstoqueTable({ onMetricasUpdate }) {
   };
 
   // Componente da barra de progresso
-  const ProgressBar = ({ estoque, minimo, maximo }) => {
-    const progresso = (estoque / maximo) * 100;
+  const ProgressBar = ({ produto, onQuantityChange }) => {
+    if (!produto) return null;
+    const [editingQuantity, setEditingQuantity] = useState(false);
+    const [tempQuantity, setTempQuantity] = useState(produto.estoque || 0);
+    const theme = useTheme();
 
-  return (
-      <Box sx={{ width: '100%', mb: 3, mt: 1 }}>
-        {/* Valor do estoque atual */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="body2" color="text.primary">
-            {estoque} un
-          </Typography>
-        </Box>
+    const getProgressColor = (estoque, minimo) => {
+      const ratio = estoque / minimo;
+      if (estoque === 0) return theme.palette.error.main;
+      if (ratio < 1) return theme.palette.warning.main;
+      if (ratio < 1.2) return '#FFB74D';
+      if (ratio <= 1.5) return theme.palette.success.light;
+      return theme.palette.success.dark;
+    };
 
-        {/* Mínimo e Máximo */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-          <Typography variant="caption" color="text.secondary">
-            Min: {minimo}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Max: {maximo}
-          </Typography>
+    return (
+      <Box sx={{ width: '100%', p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
+        {/* Quantidade e Controles */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          mb: 2 
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {editingQuantity ? (
+              <>
+                <TextField
+                  size="small"
+                  type="number"
+                  value={tempQuantity}
+                  onChange={(e) => setTempQuantity(Number(e.target.value))}
+                  sx={{ 
+                    width: 100,
+                    '& input': { textAlign: 'center' }
+                  }}
+                  InputProps={{
+                    endAdornment: <Typography variant="caption">un</Typography>
+                  }}
+                />
+                <IconButton 
+                  size="small" 
+                  onClick={() => {
+                    onQuantityChange(produto.sku, tempQuantity - produto.estoque);
+                    setEditingQuantity(false);
+                  }}
+                  color="primary"
+                >
+                  <CheckIcon />
+                </IconButton>
+                <IconButton 
+                  size="small" 
+                  onClick={() => setEditingQuantity(false)}
+                  color="error"
+                >
+                  <CloseIcon />
+                </IconButton>
+              </>
+            ) : (
+              <>
+                <Typography 
+                  variant="h6" 
+                  onClick={() => setEditingQuantity(true)}
+                  sx={{ 
+                    cursor: 'pointer',
+                    fontWeight: 'medium',
+                    '&:hover': { color: theme.palette.primary.main }
+                  }}
+                >
+                  {produto.estoque}
+                  <Typography component="span" variant="caption" sx={{ ml: 0.5 }}>un</Typography>
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                  <IconButton 
+                    size="small"
+                    onClick={() => onQuantityChange(produto.sku, -1)}
+                    sx={{ 
+                      bgcolor: 'grey.100',
+                      '&:hover': { bgcolor: 'grey.200' }
+                    }}
+                  >
+                    <RemoveIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton 
+                    size="small"
+                    onClick={() => onQuantityChange(produto.sku, 1)}
+                    sx={{ 
+                      bgcolor: 'grey.100',
+                      '&:hover': { bgcolor: 'grey.200' }
+                    }}
+                  >
+                    <AddIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              </>
+            )}
+          </Box>
+          <Tooltip title="Mínimo e Máximo recomendados">
+            <Typography variant="caption" color="text.secondary">
+              Min: {produto.minimo} | Max: {Math.ceil(produto.minimo * 1.5)}
+            </Typography>
+          </Tooltip>
         </Box>
 
         {/* Barra de Progresso */}
-        <Box sx={{ position: 'relative', height: 8 }}>
+        <Box sx={{ position: 'relative', mb: 1 }}>
           <LinearProgress
             variant="determinate"
-            value={progresso}
+            value={Math.min((produto.estoque / (produto.minimo * 1.5)) * 100, 100)}
             sx={{
-              height: 8,
-              borderRadius: 4,
-              bgcolor: 'grey.200',
+              height: 10,
+              borderRadius: 5,
+              bgcolor: alpha(theme.palette.grey[200], 0.5),
               '& .MuiLinearProgress-bar': {
-                borderRadius: 4,
-                bgcolor: theme.palette.success.main
+                borderRadius: 5,
+                bgcolor: getProgressColor(produto.estoque, produto.minimo),
+                transition: 'background-color 0.3s'
               }
             }}
           />
@@ -631,53 +719,53 @@ export default function EstoqueTable({ onMetricasUpdate }) {
 
         {/* Legendas */}
         <Box sx={{ 
-          display: 'flex', 
+          display: 'flex',
           justifyContent: 'space-between',
-          mt: 2,
-          px: 0.5,
-          fontSize: '0.65rem'
+          px: 1,
+          mt: 1
         }}>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="caption" sx={{ color: 'error.main', fontSize: 'inherit' }}>
-              Sem<br/>estoque
-            </Typography>
-          </Box>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="caption" sx={{ color: 'warning.main', fontSize: 'inherit' }}>
-              Em<br/>reposição
-            </Typography>
-          </Box>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="caption" sx={{ color: '#FFB74D', fontSize: 'inherit' }}>
-              Em<br/>negociação
-            </Typography>
-          </Box>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="caption" sx={{ color: 'success.light', fontSize: 'inherit' }}>
-              Em<br/>estoque
-            </Typography>
-          </Box>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="caption" sx={{ color: 'success.dark', fontSize: 'inherit' }}>
-              Estoque<br/>alto
-            </Typography>
-          </Box>
+          {[
+            { label: 'Sem estoque', color: theme.palette.error.main },
+            { label: 'Em reposição', color: theme.palette.warning.main },
+            { label: 'Em negociação', color: '#FFB74D' },
+            { label: 'Em estoque', color: theme.palette.success.light },
+            { label: 'Estoque alto', color: theme.palette.success.dark }
+          ].map((status, index) => (
+            <Box 
+              key={index}
+              sx={{ 
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5
+              }}
+            >
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  bgcolor: status.color
+                }}
+              />
+              <Typography 
+                variant="caption"
+                sx={{ 
+                  fontSize: '0.65rem',
+                  color: 'text.secondary',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {status.label}
+              </Typography>
+            </Box>
+          ))}
         </Box>
       </Box>
     );
   };
 
   const CustomTableRow = ({ produto, onQuantityChange }) => {
-    const [editingQuantity, setEditingQuantity] = useState(false);
-    const [tempQuantity, setTempQuantity] = useState(produto.estoque);
-
-    const handleQuantityChange = async (newValue) => {
-      const delta = newValue - produto.estoque;
-      if (newValue >= 0) {
-        await onQuantityChange(produto.sku, delta);
-        setEditingQuantity(false);
-      }
-    };
+    if (!produto) return null;
 
     return (
       <TableRow hover>
@@ -685,42 +773,9 @@ export default function EstoqueTable({ onMetricasUpdate }) {
         <TableCell>{produto.produto}</TableCell>
         <TableCell sx={{ minWidth: 300, pb: 4 }}>
           <Box>
-            {editingQuantity ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <TextField
-                  size="small"
-                  type="number"
-                  value={tempQuantity}
-                  onChange={(e) => setTempQuantity(Number(e.target.value))}
-                  sx={{ width: 80 }}
-                />
-                <IconButton 
-                  size="small" 
-                  onClick={() => handleQuantityChange(tempQuantity)}
-                  color="primary"
-                >
-                  <CheckIcon fontSize="small" />
-                </IconButton>
-                <IconButton 
-                  size="small"
-                  onClick={() => setEditingQuantity(false)}
-                >
-                  <CloseIcon fontSize="small" />
-                </IconButton>
-              </Box>
-            ) : (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <Typography onClick={() => setEditingQuantity(true)} 
-                  sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}>
-                  {produto.estoque} un
-                </Typography>
-              </Box>
-            )}
-            
             <ProgressBar 
-              estoque={produto.estoque} 
-              minimo={produto.minimo} 
-              maximo={produto.minimo * 1.5} 
+              produto={produto}
+              onQuantityChange={onQuantityChange}
             />
           </Box>
         </TableCell>
@@ -783,6 +838,64 @@ export default function EstoqueTable({ onMetricasUpdate }) {
     if (dias <= 15) return 'error.main';
     if (dias <= 30) return 'warning.main';
     return 'success.main';
+  };
+
+  const EditProductDialog = ({ open, produto, onClose, onSave }) => {
+    const [editedProduct, setEditedProduct] = useState(produto);
+
+    const handleSave = () => {
+      onSave(editedProduct);
+      onClose();
+    };
+
+    return (
+      <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+        <DialogTitle>Editar Produto</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Descrição"
+                value={editedProduct.descricao}
+                onChange={(e) => setEditedProduct({...editedProduct, descricao: e.target.value})}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Estoque Mínimo"
+                value={editedProduct.minimo}
+                onChange={(e) => setEditedProduct({...editedProduct, minimo: Number(e.target.value)})}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Preço de Compra"
+                value={editedProduct.precoCompra}
+                onChange={(e) => setEditedProduct({...editedProduct, precoCompra: Number(e.target.value)})}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Valor Líquido"
+                value={editedProduct.valorLiquidoMedio}
+                onChange={(e) => setEditedProduct({...editedProduct, valorLiquidoMedio: Number(e.target.value)})}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onClose}>Cancelar</Button>
+          <Button onClick={handleSave} variant="contained">Salvar</Button>
+        </DialogActions>
+      </Dialog>
+    );
   };
 
   return (
@@ -856,7 +969,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
                 {filteredProdutos.map((produto) => (
                   <CustomTableRow 
                     key={produto.sku} 
-                          produto={produto}
+                    produto={produto}
                     onQuantityChange={handleQuantityChange}
                   />
                 ))}
