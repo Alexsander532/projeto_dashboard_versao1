@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Table,
@@ -28,7 +28,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  alpha
+  alpha,
+  ClickAwayListener
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -39,6 +40,7 @@ import {
   FilterList as FilterListIcon,
 } from '@mui/icons-material';
 import { fetchEstoque, atualizarEstoque, atualizarQuantidade } from '../services/estoqueService';
+import EditProdutoDialog from './EditProdutoDialog';
 
 export default function EstoqueTable({ onMetricasUpdate }) {
   const theme = useTheme();
@@ -47,6 +49,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
   const [tempValue, setTempValue] = useState();
   const [loading, setLoading] = useState(true);
   const [produtos, setProdutos] = useState([]);
+  const [editingProduto, setEditingProduto] = useState(null);
 
   const calcularMediaVendas = (vendasDiarias) => {
     if (!vendasDiarias || !Array.isArray(vendasDiarias)) return 0;
@@ -94,17 +97,13 @@ export default function EstoqueTable({ onMetricasUpdate }) {
         setLoading(true);
         const dadosEstoque = await fetchEstoque();
         
-        // Processa os dados antes de atualizar o estado
         const dadosProcessados = dadosEstoque.map(produto => ({
           ...produto,
           estoque: Number(produto.estoque) || 0,
           minimo: Number(produto.minimo) || 0,
           precoCompra: Number(produto.precoCompra) || 0,
           valorLiquidoMedio: Number(produto.valorLiquidoMedio) || 0,
-          valorLiquidoTotal: calcularValorLiquidoTotal(
-            produto.estoque, 
-            produto.valorLiquidoMedio
-          ),
+          valorLiquidoTotal: Number(produto.valorLiquidoTotal) || 0,
           mediaVendas: Number(produto.mediaVendas) || 0,
           totalVendas: Number(produto.totalVendas) || 0,
           status: calcularStatus(
@@ -421,12 +420,29 @@ export default function EstoqueTable({ onMetricasUpdate }) {
 
   const handleQuantityChange = async (sku, delta) => {
     try {
+      // Atualização otimista
+      setProdutos(produtos.map(p => {
+        if (p.sku === sku) {
+          return {
+            ...p,
+            estoque: p.estoque + delta
+          };
+        }
+        return p;
+      }));
+
+      // Chamada à API
       await atualizarQuantidade(sku, delta);
+      
+      // Atualiza os dados do servidor
       const dadosAtualizados = await fetchEstoque();
       setProdutos(dadosAtualizados);
       atualizarMetricas(dadosAtualizados);
     } catch (error) {
       console.error('Erro ao atualizar quantidade:', error);
+      // Reverte a atualização otimista em caso de erro
+      const dadosAtualizados = await fetchEstoque();
+      setProdutos(dadosAtualizados);
     }
   };
 
@@ -598,237 +614,381 @@ export default function EstoqueTable({ onMetricasUpdate }) {
   const ProgressBar = ({ produto, onQuantityChange }) => {
     if (!produto) return null;
     const [editingQuantity, setEditingQuantity] = useState(false);
-    const [tempQuantity, setTempQuantity] = useState(produto.estoque || 0);
+    const [localQuantity, setLocalQuantity] = useState(produto.estoque);
     const theme = useTheme();
 
-    const getProgressColor = (estoque, minimo) => {
-      const ratio = estoque / minimo;
-      if (estoque === 0) return theme.palette.error.main;
-      if (ratio < 1) return theme.palette.warning.main;
-      if (ratio < 1.2) return '#FFB74D';
-      if (ratio <= 1.5) return theme.palette.success.light;
-      return theme.palette.success.dark;
+    // Atualiza o estado local quando o produto muda
+    useEffect(() => {
+      setLocalQuantity(produto.estoque);
+    }, [produto.estoque]);
+
+    // Função para incrementar estoque
+    const handleIncrement = () => {
+      const newValue = localQuantity + 1;
+      setLocalQuantity(newValue);
+      onQuantityChange(produto.sku, 1);
     };
 
-    return (
-      <Box sx={{ width: '100%', p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
-        {/* Quantidade e Controles */}
+    // Função para decrementar estoque
+    const handleDecrement = () => {
+      if (localQuantity > 0) {
+        const newValue = localQuantity - 1;
+        setLocalQuantity(newValue);
+        onQuantityChange(produto.sku, -1);
+      }
+    };
+
+    // Função para edição manual
+    const handleManualEdit = (value) => {
+      const newValue = parseInt(value);
+      if (!isNaN(newValue) && newValue >= 0) {
+        const delta = newValue - produto.estoque;
+        setLocalQuantity(newValue);
+        onQuantityChange(produto.sku, delta);
+        setEditingQuantity(false);
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Enter') {
+        handleManualEdit(e.target.value);
+      }
+      if (e.key === 'Escape') {
+        setLocalQuantity(produto.estoque);
+        setEditingQuantity(false);
+      }
+    };
+
+  return (
+    <Box sx={{ width: '100%' }}>
+        {/* Controles de Estoque */}
         <Box sx={{ 
           display: 'flex', 
-          justifyContent: 'space-between', 
           alignItems: 'center',
-          mb: 2 
+          justifyContent: 'flex-start',
+          gap: 1,
+          mb: 2
         }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {/* Botão de Diminuir */}
+          <IconButton
+            onClick={handleDecrement}
+            disabled={localQuantity <= 0}
+            sx={{
+              width: 32,
+              height: 32,
+              border: `1px solid ${theme.palette.divider}`,
+              '&:hover': {
+                bgcolor: theme.palette.action.hover,
+              },
+              '&:disabled': {
+                borderColor: theme.palette.action.disabled,
+              }
+            }}
+          >
+            <RemoveIcon fontSize="small" />
+          </IconButton>
+
+          {/* Campo de Quantidade */}
+          <Box sx={{ position: 'relative', minWidth: 60 }}>
             {editingQuantity ? (
-              <>
                 <TextField
+                autoFocus
+                type="number"
+                value={localQuantity}
+                onChange={(e) => setLocalQuantity(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onBlur={(e) => handleManualEdit(e.target.value)}
                   size="small"
-                  type="number"
-                  value={tempQuantity}
-                  onChange={(e) => setTempQuantity(Number(e.target.value))}
-                  sx={{ 
-                    width: 100,
-                    '& input': { textAlign: 'center' }
-                  }}
-                  InputProps={{
-                    endAdornment: <Typography variant="caption">un</Typography>
-                  }}
-                />
-                <IconButton 
-                  size="small" 
-                  onClick={() => {
-                    onQuantityChange(produto.sku, tempQuantity - produto.estoque);
-                    setEditingQuantity(false);
-                  }}
-                  color="primary"
-                >
-                  <CheckIcon />
-                </IconButton>
-                <IconButton 
-                  size="small" 
-                  onClick={() => setEditingQuantity(false)}
-                  color="error"
-                >
-                  <CloseIcon />
-                </IconButton>
-              </>
-            ) : (
-              <>
-                <Typography 
-                  variant="h6" 
-                  onClick={() => setEditingQuantity(true)}
-                  sx={{ 
-                    cursor: 'pointer',
+                  sx={{
+                  width: '80px',
+                  '& input': {
+                    textAlign: 'center',
+                    padding: '4px',
+                    fontSize: '1rem',
                     fontWeight: 'medium',
-                    '&:hover': { color: theme.palette.primary.main }
-                  }}
-                >
-                  {produto.estoque}
-                  <Typography component="span" variant="caption" sx={{ ml: 0.5 }}>un</Typography>
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 0.5 }}>
-                  <IconButton 
-                    size="small"
-                    onClick={() => onQuantityChange(produto.sku, -1)}
-                    sx={{ 
-                      bgcolor: 'grey.100',
-                      '&:hover': { bgcolor: 'grey.200' }
-                    }}
-                  >
-                    <RemoveIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton 
-                    size="small"
-                    onClick={() => onQuantityChange(produto.sku, 1)}
-                    sx={{ 
-                      bgcolor: 'grey.100',
-                      '&:hover': { bgcolor: 'grey.200' }
-                    }}
-                  >
-                    <AddIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              </>
+                  }
+                }}
+                InputProps={{
+                  inputProps: { min: 0 }
+                }}
+              />
+            ) : (
+              <Typography
+                onClick={() => setEditingQuantity(true)}
+                sx={{
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: 'medium',
+                  textAlign: 'center',
+                  minWidth: '60px',
+                  padding: '4px 8px',
+                  border: `1px solid transparent`,
+                  borderRadius: 1,
+                  '&:hover': {
+                    bgcolor: theme.palette.action.hover,
+                    border: `1px solid ${theme.palette.primary.main}`,
+                  }
+                }}
+              >
+                {localQuantity}
+              </Typography>
             )}
           </Box>
-          <Tooltip title="Mínimo e Máximo recomendados">
-            <Typography variant="caption" color="text.secondary">
-              Min: {produto.minimo} | Max: {Math.ceil(produto.minimo * 1.5)}
-            </Typography>
-          </Tooltip>
+
+          {/* Botão de Aumentar */}
+          <IconButton
+            onClick={handleIncrement}
+            sx={{
+              width: 32,
+              height: 32,
+              border: `1px solid ${theme.palette.divider}`,
+                '&:hover': {
+                bgcolor: theme.palette.action.hover,
+              }
+            }}
+          >
+            <AddIcon fontSize="small" />
+          </IconButton>
+
+          {/* Informação Min/Max */}
+          <Typography 
+            variant="caption" 
+            color="text.secondary"
+            sx={{ ml: 2 }}
+          >
+            Min: {produto.minimo} | Max: {Math.ceil(produto.minimo * 1.5)}
+          </Typography>
         </Box>
 
         {/* Barra de Progresso */}
-        <Box sx={{ position: 'relative', mb: 1 }}>
+        <Box sx={{ width: '100%' }}>
           <LinearProgress
             variant="determinate"
-            value={Math.min((produto.estoque / (produto.minimo * 1.5)) * 100, 100)}
+            value={Math.min((localQuantity / (produto.minimo * 1.5)) * 100, 100)}
             sx={{
-              height: 10,
-              borderRadius: 5,
+              height: 8,
+              borderRadius: 4,
               bgcolor: alpha(theme.palette.grey[200], 0.5),
               '& .MuiLinearProgress-bar': {
-                borderRadius: 5,
-                bgcolor: getProgressColor(produto.estoque, produto.minimo),
-                transition: 'background-color 0.3s'
+                borderRadius: 4,
+                bgcolor: getBarColor(localQuantity, produto.mediaVendas, produto.minimo),
+                transition: 'all 0.2s'
               }
             }}
           />
-        </Box>
 
-        {/* Legendas */}
-        <Box sx={{ 
-          display: 'flex',
-          justifyContent: 'space-between',
-          px: 1,
-          mt: 1
-        }}>
-          {[
-            { label: 'Sem estoque', color: theme.palette.error.main },
-            { label: 'Em reposição', color: theme.palette.warning.main },
-            { label: 'Em negociação', color: '#FFB74D' },
-            { label: 'Em estoque', color: theme.palette.success.light },
-            { label: 'Estoque alto', color: theme.palette.success.dark }
-          ].map((status, index) => (
-            <Box 
-              key={index}
-              sx={{ 
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.5
-              }}
-            >
-              <Box
-                sx={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  bgcolor: status.color
-                }}
-              />
-              <Typography 
-                variant="caption"
-                sx={{ 
-                  fontSize: '0.65rem',
-                  color: 'text.secondary',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                {status.label}
-              </Typography>
-            </Box>
-          ))}
+          {/* Legendas */}
+          <Box sx={{ 
+            display: 'flex',
+            justifyContent: 'space-between',
+            mt: 1,
+            fontSize: '0.75rem'
+          }}>
+            <Typography variant="caption" sx={{ color: theme.palette.error.main }}>•Sem estoque</Typography>
+            <Typography variant="caption" sx={{ color: theme.palette.warning.main }}>•Em reposição</Typography>
+            <Typography variant="caption" sx={{ color: '#FFB74D' }}>•Em negociação</Typography>
+            <Typography variant="caption" sx={{ color: theme.palette.success.light }}>•Em estoque</Typography>
+            <Typography variant="caption" sx={{ color: theme.palette.success.dark }}>•Estoque alto</Typography>
+          </Box>
         </Box>
       </Box>
     );
   };
 
-  const CustomTableRow = ({ produto, onQuantityChange }) => {
-    if (!produto) return null;
+  const CustomTableRow = ({ produto, onQuantityChange, onEdit }) => {
+    const theme = useTheme();
+    const [editingQuantity, setEditingQuantity] = useState(false);
+    const [quantidade, setQuantidade] = useState(produto?.estoque || 0);
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+      setQuantidade(produto?.estoque || 0);
+    }, [produto?.estoque]);
+
+    const handleQuantityChange = async (delta) => {
+      if (!produto?.sku) return;
+      
+      const novaQuantidade = quantidade + delta;
+      if (novaQuantidade >= 0) {
+        try {
+          await onQuantityChange(produto.sku, delta);
+          setQuantidade(novaQuantidade);
+        } catch (error) {
+          console.error('Erro ao atualizar quantidade:', error);
+          setQuantidade(produto.estoque);
+        }
+      }
+    };
+
+    const handleManualEdit = async (novoValor) => {
+      if (!produto?.sku) return;
+      
+      const novaQuantidade = parseInt(novoValor);
+      if (!isNaN(novaQuantidade) && novaQuantidade >= 0) {
+        try {
+          const delta = novaQuantidade - quantidade;
+          await onQuantityChange(produto.sku, delta);
+          setQuantidade(novaQuantidade);
+        } catch (error) {
+          console.error('Erro ao atualizar quantidade:', error);
+          setQuantidade(produto.estoque);
+        }
+      }
+      setEditingQuantity(false);
+    };
+
+    const calcularPorcentagem = () => {
+      if (!produto?.minimo) return 0;
+      return Math.min((quantidade / produto.minimo) * 100, 100);
+    };
+
+    const getProgressColor = (porcentagem) => {
+      if (porcentagem >= 100) return theme.palette.success.main;
+      if (porcentagem >= 70) return theme.palette.info.main;
+      if (porcentagem >= 30) return theme.palette.warning.main;
+      return theme.palette.error.main;
+    };
 
     return (
       <TableRow hover>
-        <TableCell>{produto.sku}</TableCell>
+        <TableCell align="center">{produto.sku}</TableCell>
         <TableCell>{produto.produto}</TableCell>
-        <TableCell sx={{ minWidth: 300, pb: 4 }}>
-          <Box>
-            <ProgressBar 
-              produto={produto}
-              onQuantityChange={onQuantityChange}
-            />
+        <TableCell>
+          <Box sx={{ width: '100%' }}>
+            {/* Controles de Estoque */}
+            <Box sx={{ 
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              mb: 1
+            }}>
+              <IconButton
+                onClick={() => handleQuantityChange(-1)}
+                disabled={quantidade <= 0}
+                size="small"
+                sx={{
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  '&:hover': { bgcolor: 'action.hover' }
+                }}
+              >
+                <RemoveIcon fontSize="small" />
+              </IconButton>
+
+              {editingQuantity ? (
+                <TextField
+                  autoFocus
+                  inputRef={inputRef}
+                  type="number"
+                  value={quantidade}
+                  onChange={(e) => setQuantidade(parseInt(e.target.value) || 0)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleManualEdit(e.target.value);
+                    if (e.key === 'Escape') {
+                      setQuantidade(produto.estoque);
+                      setEditingQuantity(false);
+                    }
+                  }}
+                  onBlur={(e) => handleManualEdit(e.target.value)}
+                  size="small"
+                  sx={{
+                    width: '80px',
+                    '& input': { textAlign: 'center' }
+                  }}
+                  InputProps={{
+                    inputProps: { min: 0 }
+                  }}
+                />
+              ) : (
+                <Typography
+                  onClick={() => setEditingQuantity(true)}
+                  sx={{
+                    width: '80px',
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    padding: '6px 12px',
+                    borderRadius: 1,
+                    '&:hover': {
+                      bgcolor: 'action.hover',
+                      border: `1px solid ${theme.palette.primary.main}`
+                    }
+                  }}
+                >
+                  {quantidade}
+                </Typography>
+              )}
+
+              <IconButton
+                onClick={() => handleQuantityChange(1)}
+                size="small"
+                sx={{
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  '&:hover': { bgcolor: 'action.hover' }
+                }}
+              >
+                <AddIcon fontSize="small" />
+              </IconButton>
+
+              <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                Min: {produto.minimo} | Max: {Math.ceil(produto.minimo * 1.5)}
+              </Typography>
+            </Box>
+
+            {/* Barra de Progresso */}
+            <Box sx={{ width: '100%' }}>
+              <LinearProgress
+                variant="determinate"
+                value={calcularPorcentagem()}
+                sx={{
+                  height: 6,
+                  borderRadius: 3,
+                  bgcolor: alpha(theme.palette.grey[200], 0.5),
+                  '& .MuiLinearProgress-bar': {
+                    borderRadius: 3,
+                    bgcolor: getProgressColor(calcularPorcentagem())
+                  }
+                }}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                {quantidade} / {produto.minimo} unidades ({calcularPorcentagem().toFixed(1)}%)
+              </Typography>
+            </Box>
           </Box>
         </TableCell>
-        <TableCell>
-          {formatarValor(produto.precoCompra)}
-        </TableCell>
-        <TableCell>
-          <Box>
-            <Typography>
-              {formatarValor(produto.valorLiquidoTotal)}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Média: {formatarValor(produto.valorLiquidoMedio)}/un
-            </Typography>
-          </Box>
-        </TableCell>
-        <TableCell>
-          <Chip
+
+        <TableCell align="right">R$ {produto.precoCompra?.toFixed(2) || '0.00'}</TableCell>
+        <TableCell align="right">R$ {produto.valorLiquidoTotal?.toFixed(2) || '0.00'}</TableCell>
+        <TableCell align="center">
+          <Chip 
             label={produto.status}
             color={getStatusColor(produto.status)}
-            sx={{ 
-              bgcolor: produto.status === 'Em negociação' ? '#FFB74D' : undefined,
-              minWidth: 110
-            }}
+            size="small"
           />
         </TableCell>
-        <TableCell>
-          <Box>
-            <Typography>
-              {Number(produto.mediaVendas).toFixed(1)} un/dia
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Total: {produto.totalVendas} un
-            </Typography>
-          </Box>
-        </TableCell>
-        <TableCell>
-          <Typography
-            color={getPrevisaoColor(produto.previsaoDias)}
-          >
-            {produto.previsaoDias} dias
-          </Typography>
-        </TableCell>
-        <TableCell>
+        <TableCell align="center">{produto.mediaVendas?.toFixed(2) || '0.00'} un/dia</TableCell>
+        <TableCell align="center">{produto.previsaoDias || 0} dias</TableCell>
+        <TableCell align="center">
           {produto.ultimaVenda ? 
             new Date(produto.ultimaVenda).toLocaleDateString('pt-BR') : 
             '-'
           }
         </TableCell>
-        <TableCell>
-          <IconButton size="small">
-            <EditIcon fontSize="small" />
-          </IconButton>
+        <TableCell align="center">
+          <Tooltip title="Editar produto">
+            <IconButton 
+              size="small"
+              onClick={() => onEdit(produto)}
+              sx={{
+                '&:hover': {
+                  color: theme.palette.primary.main,
+                  bgcolor: alpha(theme.palette.primary.main, 0.1)
+                }
+              }}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </TableCell>
       </TableRow>
     );
@@ -840,62 +1000,19 @@ export default function EstoqueTable({ onMetricasUpdate }) {
     return 'success.main';
   };
 
-  const EditProductDialog = ({ open, produto, onClose, onSave }) => {
-    const [editedProduct, setEditedProduct] = useState(produto);
+  const handleEdit = (produto) => {
+    setEditingProduto(produto);
+  };
 
-    const handleSave = () => {
-      onSave(editedProduct);
-      onClose();
-    };
-
-    return (
-      <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Editar Produto</DialogTitle>
-        <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Descrição"
-                value={editedProduct.descricao}
-                onChange={(e) => setEditedProduct({...editedProduct, descricao: e.target.value})}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Estoque Mínimo"
-                value={editedProduct.minimo}
-                onChange={(e) => setEditedProduct({...editedProduct, minimo: Number(e.target.value)})}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Preço de Compra"
-                value={editedProduct.precoCompra}
-                onChange={(e) => setEditedProduct({...editedProduct, precoCompra: Number(e.target.value)})}
-              />
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                fullWidth
-                type="number"
-                label="Valor Líquido"
-                value={editedProduct.valorLiquidoMedio}
-                onChange={(e) => setEditedProduct({...editedProduct, valorLiquidoMedio: Number(e.target.value)})}
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSave} variant="contained">Salvar</Button>
-        </DialogActions>
-      </Dialog>
-    );
+  const handleSaveEdit = async (dadosAtualizados) => {
+    try {
+      await atualizarEstoque(dadosAtualizados.sku, dadosAtualizados);
+      // Atualizar a lista de produtos
+      fetchProdutos();
+      setEditingProduto(null);
+    } catch (error) {
+      console.error('Erro ao atualizar produto:', error);
+    }
   };
 
   return (
@@ -969,13 +1086,21 @@ export default function EstoqueTable({ onMetricasUpdate }) {
                 {filteredProdutos.map((produto) => (
                   <CustomTableRow 
                     key={produto.sku} 
-                    produto={produto}
+                          produto={produto}
                     onQuantityChange={handleQuantityChange}
+                    onEdit={handleEdit}
                   />
                 ))}
               </TableBody>
             </Table>
           </TableContainer>
+
+          <EditProdutoDialog
+            open={!!editingProduto}
+            onClose={() => setEditingProduto(null)}
+            produto={editingProduto}
+            onSave={handleSaveEdit}
+          />
         </>
       )}
     </Box>

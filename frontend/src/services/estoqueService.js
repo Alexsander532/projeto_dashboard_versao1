@@ -1,42 +1,34 @@
 import axios from 'axios';
 
-const calcularStatus = (estoque, mediaVendas, minimo) => {
-    const estoqueAtual = Number(estoque) || 0;
-    const minimoEstoque = Number(minimo) || 0;
-    const media = Number(mediaVendas) || 0;
-
-    if (estoqueAtual === 0) return 'Sem Estoque';
-    if (estoqueAtual < minimoEstoque) return 'Em reposição';
-    if (estoqueAtual < minimoEstoque * 1.2) return 'Em negociação';
-    if (estoqueAtual <= minimoEstoque * 1.5) return 'Em estoque';
+const calcularStatus = (estoque, minimo) => {
+    if (estoque === 0) return 'Sem Estoque';
+    if (estoque < minimo) return 'Em reposição';
+    if (estoque < minimo * 1.2) return 'Em negociação';
+    if (estoque <= minimo * 1.5) return 'Em estoque';
     return 'Estoque alto';
 };
 
 export const fetchEstoque = async () => {
     try {
         const response = await axios.get('http://localhost:3001/api/estoque');
-        return response.data.map(item => {
-            const estoque = Number(item.estoque) || 0;
-            const minimo = Number(item.minimo) || 0;
-            const mediaVendas = Number(item.media_vendas) || 0;
-            
-            return {
-                id: Number(item.id),
-                sku: item.sku,
-                produto: item.descricao,
-                estoque: estoque,
-                minimo: minimo,
-                precoCompra: Number(item.cmv) || 0,
-                valorLiquidoMedio: Number(item.valor_liquido) || 0,
-                mediaVendas: mediaVendas,
-                totalVendas: Number(item.total_vendas) || 0,
-                ultimaVenda: item.ultima_venda,
-                status: calcularStatus(estoque, mediaVendas, minimo),
-                vendasDiarias: Array.isArray(item.vendas_diarias) ? item.vendas_diarias : []
-            };
-        });
+        return response.data.map(item => ({
+            id: Number(item.id),
+            sku: item.sku,
+            produto: item.descricao,
+            estoque: Number(item.estoque) || 0,
+            minimo: Number(item.minimo) || 0,
+            precoCompra: Number(item.cmv) || 0,
+            valorLiquidoMedio: Number(item.valor_liquido) || 0,
+            valorLiquidoTotal: Number(item.valor_liquido * item.estoque) || 0,
+            mediaVendas: Number(item.media_vendas) || 0,
+            totalVendas: Number(item.total_vendas) || 0,
+            ultimaVenda: item.ultima_venda,
+            status: calcularStatus(Number(item.estoque), Number(item.minimo)),
+            created_at: item.created_at,
+            updated_at: item.updated_at
+        }));
     } catch (error) {
-        console.error('Erro ao buscar dados do estoque:', error);
+        console.error('Erro ao buscar estoque:', error);
         throw error;
     }
 };
