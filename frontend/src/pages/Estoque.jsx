@@ -130,52 +130,46 @@ export default function Estoque() {
       doc.text('Produtos em Estoque', doc.internal.pageSize.width / 2, doc.autoTable.previous.finalY + 30, { align: 'center' });
 
       // Preparar dados para a tabela
-      const productsData = dadosEstoque
-        .map(item => {
-          const mediaVendas = item.vendasDiarias.reduce((sum, vendas) => sum + vendas, 0) / item.vendasDiarias.length;
-          const minimo = calcularMinimo(mediaVendas);
-          const minimoNegociacao = calcularMinimoNegociacao(mediaVendas);
-          const previsao = calcularPrevisao(item.estoque, mediaVendas);
-          const valorLiquidoTotal = item.valorLiquidoMedio * item.estoque;
-          
-          return [
-            item.sku,
-            item.produto,
-            item.estoque.toString(),
-            minimo.toString(),
-            `R$ ${item.precoCompra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-            `R$ ${valorLiquidoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-            item.status,
-            mediaVendas.toFixed(0),
-            previsao.toString()
-          ];
-        })
-        .sort((a, b) => {
-          // Função para atribuir peso ao status
-          const getPesoStatus = (status) => {
-            const statusLower = status.toLowerCase();
-            if (statusLower === 'sem estoque') return 1;
-            if (statusLower === 'em reposição') return 2;
-            if (statusLower === 'em negociação') return 3;
-            if (statusLower === 'em estoque') return 4;
-            if (statusLower === 'estoque alto') return 5;
-            return 6;
-          };
+      const productsData = dadosEstoque.map(item => {
+        const previsao = item.mediaVendas > 0 ? Math.ceil(item.estoque / item.mediaVendas) : 0;
+        
+        return [
+          item.sku,
+          item.produto,
+          item.estoque.toString(),
+          item.minimo.toString(),
+          `R$ ${item.precoCompra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          `R$ ${item.valorLiquidoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          item.status,
+          item.mediaVendas.toFixed(2),
+          previsao.toString()
+        ];
+      }).sort((a, b) => {
+        // Função para atribuir peso ao status
+        const getPesoStatus = (status) => {
+          const statusLower = status.toLowerCase();
+          if (statusLower === 'sem estoque') return 1;
+          if (statusLower === 'em reposição') return 2;
+          if (statusLower === 'em negociação') return 3;
+          if (statusLower === 'em estoque') return 4;
+          if (statusLower === 'estoque alto') return 5;
+          return 6;
+        };
 
-          // Comparar primeiro por status
-          const statusA = getPesoStatus(a[6]);
-          const statusB = getPesoStatus(b[6]);
-          
-          if (statusA !== statusB) {
-            return statusA - statusB;
-          }
-          
-          // Se o status for igual, ordenar por previsão
-          const previsaoA = parseInt(a[8]) || 0;
-          const previsaoB = parseInt(b[8]) || 0;
-          return previsaoA - previsaoB;
-        });
-      
+        // Comparar primeiro por status
+        const statusA = getPesoStatus(a[6]);
+        const statusB = getPesoStatus(b[6]);
+        
+        if (statusA !== statusB) {
+          return statusA - statusB;
+        }
+        
+        // Se o status for igual, ordenar por previsão
+        const previsaoA = parseInt(a[8]) || 0;
+        const previsaoB = parseInt(b[8]) || 0;
+        return previsaoA - previsaoB;
+      });
+
       // Segunda tabela (Produtos em Estoque)
       doc.autoTable({
         startY: doc.autoTable.previous.finalY + 40,
