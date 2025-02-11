@@ -26,18 +26,11 @@ export default function Estoque() {
     totalEstoque: 0,
     valorTotal: 0,
     estoqueCritico: 0,
-    giroMedio: 0
   });
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const handleMetricasUpdate = (novasMetricas) => {
-    const metricasFormatadas = {
-      totalEstoque: Number(novasMetricas.totalEstoque) || 0,
-      valorTotal: Number(novasMetricas.valorTotal) || 0,
-      estoqueCritico: Number(novasMetricas.estoqueCritico) || 0,
-      giroMedio: Number(novasMetricas.giroMedio) || 0
-    };
-    setMetricas(metricasFormatadas);
+    setMetricas(novasMetricas);
   };
 
   const calcularMinimo = (mediaVendas) => {
@@ -89,8 +82,7 @@ export default function Estoque() {
       const metricsData = [
         ['Total em Estoque', metricas.totalEstoque.toString()],
         ['Valor em Estoque', `R$ ${metricas.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
-        ['Estoque em Reposição', metricas.estoqueCritico.toString()],
-        ['Giro Médio', metricas.giroMedio.toFixed(1)]
+        ['Estoque em Reposição', metricas.estoqueCritico.toString()]
       ];
       
       // Primeira tabela (Métricas Principais)
@@ -356,7 +348,7 @@ export default function Estoque() {
 
           {/* Métricas */}
           <Grid container spacing={3} sx={{ mb: 4 }}>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={6} md={4}>
               <MetricCard
                 title="Total em Estoque"
                 value={metricas.totalEstoque}
@@ -364,7 +356,7 @@ export default function Estoque() {
                 color="#0ea5e9"
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={6} md={4}>
               <MetricCard
                 title="Valor em Estoque"
                 value={metricas.valorTotal}
@@ -373,21 +365,12 @@ export default function Estoque() {
                 isCurrency
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12} sm={12} md={4}>
               <MetricCard
                 title="Em Reposição"
                 value={metricas.estoqueCritico}
                 icon={<WarningIcon />}
                 color="#f97316"
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <MetricCard
-                title="Giro Médio"
-                value={metricas.giroMedio}
-                icon={<AutorenewIcon />}
-                color="#8b5cf6"
-                decimals={1}
               />
             </Grid>
           </Grid>

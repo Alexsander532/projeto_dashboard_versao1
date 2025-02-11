@@ -63,9 +63,6 @@ export default function EstoqueTable({ onMetricasUpdate }) {
       totalEstoque: dadosEstoque.reduce((acc, item) => acc + (Number(item.estoque) || 0), 0),
       valorTotal: dadosEstoque.reduce((acc, item) => acc + ((Number(item.estoque) || 0) * (Number(item.valorLiquidoMedio) || 0)), 0),
       estoqueCritico: dadosEstoque.filter(item => item.status === 'Em reposição').length,
-      giroMedio: dadosEstoque.length > 0 ? 
-        +(dadosEstoque.reduce((acc, item) => acc + (Number(item.mediaVendas) || 0), 0) / dadosEstoque.length).toFixed(1) : 
-        0
     };
     onMetricasUpdate(novasMetricas);
   }, [onMetricasUpdate]);
