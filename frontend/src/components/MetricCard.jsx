@@ -1,10 +1,21 @@
 import React from 'react';
 import { Box, Card, Typography, Tooltip, useTheme } from '@mui/material';
 
-function MetricCard({ title, value, icon, color, tooltip }) {
+const formatValue = (value, isCurrency) => {
+  if (isCurrency) {
+    return `R$ ${Number(value).toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+      style: 'decimal'
+    })}`;
+  }
+  return value;
+};
+
+function MetricCard({ title, value, icon, color, tooltip, isCurrency }) {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
-  const formattedValue = value || '0';
+  const formattedValue = formatValue(value, isCurrency);
 
   return (
     <Card

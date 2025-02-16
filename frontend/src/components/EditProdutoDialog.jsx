@@ -6,124 +6,89 @@ import {
   DialogActions,
   TextField,
   Button,
-  Grid,
-  IconButton
+  Box
 } from '@mui/material';
-import { Close as CloseIcon } from '@mui/icons-material';
 
-export default function EditProdutoDialog({ open, onClose, produto, onSave }) {
-  const [formData, setFormData] = useState({
-    sku: '',
-    produto: '',
-    estoque: 0,
-    minimo: 0,
-    precoCompra: 0,
-    valorLiquidoMedio: 0
-  });
+export default function EditProdutoDialog({ open, produto, onClose, onSave }) {
+  const [formData, setFormData] = useState({});
 
   useEffect(() => {
     if (produto) {
       setFormData({
-        sku: produto.sku || '',
-        produto: produto.produto || '',
-        estoque: produto.estoque || 0,
-        minimo: produto.minimo || 0,
-        precoCompra: produto.precoCompra || 0,
-        valorLiquidoMedio: produto.valorLiquidoMedio || 0
+        sku: produto.sku,
+        produto: produto.produto,
+        estoque: produto.estoque,
+        minimo: produto.minimo,
+        precoCompra: produto.precoCompra,
+        valorLiquidoMedio: produto.valorLiquidoMedio
       });
     }
   }, [produto]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  const handleChange = (field) => (event) => {
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [field]: event.target.value
     }));
   };
 
-  const handleSubmit = () => {
-    onSave(formData);
-    onClose();
+  const handleSubmit = async () => {
+    try {
+      await onSave(formData);
+      onClose();
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
+    }
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ m: 0, p: 2 }}>
-        Editar Produto
-        <IconButton
-          onClick={onClose}
-          sx={{
-            position: 'absolute',
-            right: 8,
-            top: 8
-          }}
-        >
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent dividers>
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="SKU"
-              name="sku"
-              value={formData.sku}
-              onChange={handleChange}
-              disabled
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="Produto"
-              name="produto"
-              value={formData.produto}
-              onChange={handleChange}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Estoque"
-              name="estoque"
-              type="number"
-              value={formData.estoque}
-              onChange={handleChange}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Estoque Mínimo"
-              name="minimo"
-              type="number"
-              value={formData.minimo}
-              onChange={handleChange}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Preço de Compra"
-              name="precoCompra"
-              type="number"
-              value={formData.precoCompra}
-              onChange={handleChange}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Valor Líquido Médio"
-              name="valorLiquidoMedio"
-              type="number"
-              value={formData.valorLiquidoMedio}
-              onChange={handleChange}
-            />
-          </Grid>
-        </Grid>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="sm" 
+      fullWidth
+      TransitionProps={{
+        unmountOnExit: true // Garante que o componente seja desmontado ao fechar
+      }}
+    >
+      <DialogTitle>Editar Produto</DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+          <TextField
+            label="SKU"
+            value={formData.sku || ''}
+            disabled
+          />
+          <TextField
+            label="Produto"
+            value={formData.produto || ''}
+            onChange={handleChange('produto')}
+          />
+          <TextField
+            label="Estoque"
+            type="number"
+            value={formData.estoque || ''}
+            onChange={handleChange('estoque')}
+          />
+          <TextField
+            label="Mínimo"
+            type="number"
+            value={formData.minimo || ''}
+            onChange={handleChange('minimo')}
+          />
+          <TextField
+            label="Preço de Compra"
+            type="number"
+            value={formData.precoCompra || ''}
+            onChange={handleChange('precoCompra')}
+          />
+          <TextField
+            label="Valor Líquido Médio"
+            type="number"
+            value={formData.valorLiquidoMedio || ''}
+            onChange={handleChange('valorLiquidoMedio')}
+          />
+        </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancelar</Button>

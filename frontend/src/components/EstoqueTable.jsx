@@ -417,7 +417,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
 
   const handleQuantityChange = async (sku, delta) => {
     try {
-      // Atualização otimista
+      // Atualiza o estado local imediatamente
       setProdutos(produtos.map(p => {
         if (p.sku === sku) {
           return {
@@ -428,18 +428,29 @@ export default function EstoqueTable({ onMetricasUpdate }) {
         return p;
       }));
 
-      // Chamada à API
+      // Faz a requisição para o backend
       await atualizarQuantidade(sku, delta);
       
-      // Atualiza os dados do servidor
-      const dadosAtualizados = await fetchEstoque();
-      setProdutos(dadosAtualizados);
-      atualizarMetricas(dadosAtualizados);
+      // Atualiza as métricas
+      const metricas = {
+        totalEstoque: produtos.reduce((acc, p) => acc + (p.sku === sku ? p.estoque + delta : p.estoque), 0),
+        valorTotal: produtos.reduce((acc, p) => acc + ((p.sku === sku ? p.estoque + delta : p.estoque) * p.valorLiquidoMedio), 0),
+        estoqueCritico: produtos.filter(p => p.estoque < p.minimo).length
+      };
+      onMetricasUpdate(metricas);
+
     } catch (error) {
       console.error('Erro ao atualizar quantidade:', error);
-      // Reverte a atualização otimista em caso de erro
-      const dadosAtualizados = await fetchEstoque();
-      setProdutos(dadosAtualizados);
+      // Em caso de erro, reverte a alteração local
+      setProdutos(produtos.map(p => {
+        if (p.sku === sku) {
+          return {
+            ...p,
+            estoque: p.estoque - delta
+          };
+        }
+        return p;
+      }));
     }
   };
 
@@ -609,26 +620,26 @@ export default function EstoqueTable({ onMetricasUpdate }) {
   const ProgressBar = ({ produto, onQuantityChange }) => {
     if (!produto) return null;
     const [editingQuantity, setEditingQuantity] = useState(false);
-    const [localQuantity, setLocalQuantity] = useState(produto.estoque);
+    const [quantidade, setQuantidade] = useState(produto.estoque);
     const theme = useTheme();
 
     // Atualiza o estado local quando o produto muda
     useEffect(() => {
-      setLocalQuantity(produto.estoque);
+      setQuantidade(produto.estoque);
     }, [produto.estoque]);
 
     // Função para incrementar estoque
     const handleIncrement = () => {
-      const newValue = localQuantity + 1;
-      setLocalQuantity(newValue);
+      const newValue = quantidade + 1;
+      setQuantidade(newValue);
       onQuantityChange(produto.sku, 1);
     };
 
     // Função para decrementar estoque
     const handleDecrement = () => {
-      if (localQuantity > 0) {
-        const newValue = localQuantity - 1;
-        setLocalQuantity(newValue);
+      if (quantidade > 0) {
+        const newValue = quantidade - 1;
+        setQuantidade(newValue);
         onQuantityChange(produto.sku, -1);
       }
     };
@@ -637,8 +648,8 @@ export default function EstoqueTable({ onMetricasUpdate }) {
     const handleManualEdit = (value) => {
       const newValue = parseInt(value);
       if (!isNaN(newValue) && newValue >= 0) {
-        const delta = newValue - produto.estoque;
-        setLocalQuantity(newValue);
+        const delta = newValue - quantidade;
+        setQuantidade(newValue);
         onQuantityChange(produto.sku, delta);
         setEditingQuantity(false);
       }
@@ -649,7 +660,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
         handleManualEdit(e.target.value);
       }
       if (e.key === 'Escape') {
-        setLocalQuantity(produto.estoque);
+        setQuantidade(produto.estoque);
         setEditingQuantity(false);
       }
     };
@@ -667,7 +678,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
           {/* Botão de Diminuir */}
           <IconButton
             onClick={handleDecrement}
-            disabled={localQuantity <= 0}
+            disabled={quantidade <= 0}
             sx={{
               width: 32,
               height: 32,
@@ -689,8 +700,8 @@ export default function EstoqueTable({ onMetricasUpdate }) {
                 <TextField
                 autoFocus
                 type="number"
-                value={localQuantity}
-                onChange={(e) => setLocalQuantity(e.target.value)}
+                value={quantidade}
+                onChange={(e) => setQuantidade(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onBlur={(e) => handleManualEdit(e.target.value)}
                   size="small"
@@ -725,7 +736,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
                   }
                 }}
               >
-                {localQuantity}
+                {quantidade}
               </Typography>
             )}
           </Box>
@@ -759,20 +770,20 @@ export default function EstoqueTable({ onMetricasUpdate }) {
         <Box sx={{ width: '100%', maxWidth: 200 }}>
           <LinearProgress
             variant="determinate"
-            value={Math.min((localQuantity / (produto.minimo * 1.5)) * 100, 100)}
+            value={Math.min((quantidade / (produto.minimo * 1.5)) * 100, 100)}
             sx={{
               height: 6,
               borderRadius: 3,
               bgcolor: alpha(theme.palette.grey[200], 0.5),
               '& .MuiLinearProgress-bar': {
                 borderRadius: 3,
-                bgcolor: getBarColor(localQuantity, produto.minimo),
+                bgcolor: getBarColor(quantidade, produto.minimo),
                 transition: 'all 0.3s'
               }
             }}
           />
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, textAlign: 'center' }}>
-            Min: {produto.minimo} | Atual: {localQuantity} | Max: {Math.ceil(produto.minimo * 1.5)}
+            Min: {produto.minimo} | Atual: {quantidade} | Max: {Math.ceil(produto.minimo * 1.5)}
           </Typography>
         </Box>
       </Box>
@@ -780,60 +791,42 @@ export default function EstoqueTable({ onMetricasUpdate }) {
   };
 
   const CustomTableRow = ({ produto, onQuantityChange, onEdit }) => {
-    const theme = useTheme();
+    const [quantidade, setQuantidade] = useState(produto.estoque);
     const [editingQuantity, setEditingQuantity] = useState(false);
-    const [quantidade, setQuantidade] = useState(produto?.estoque || 0);
-    const inputRef = useRef(null);
+    const theme = useTheme();
 
+    // Atualiza o estado local quando o produto muda
     useEffect(() => {
-      setQuantidade(produto?.estoque || 0);
-    }, [produto?.estoque]);
+      setQuantidade(produto.estoque);
+    }, [produto.estoque]);
 
     const handleQuantityChange = async (delta) => {
-      if (!produto?.sku) return;
-      
-      const novaQuantidade = quantidade + delta;
-      if (novaQuantidade >= 0) {
-        try {
+      try {
+        const novaQuantidade = quantidade + delta;
+        if (novaQuantidade >= 0) {
           await onQuantityChange(produto.sku, delta);
           setQuantidade(novaQuantidade);
-        } catch (error) {
-          console.error('Erro ao atualizar quantidade:', error);
-          setQuantidade(produto.estoque);
         }
+      } catch (error) {
+        console.error('Erro ao atualizar quantidade:', error);
       }
     };
 
-    const handleManualEdit = async (novoValor) => {
-      if (!produto?.sku) return;
-      
-      const novaQuantidade = parseInt(novoValor);
-      if (!isNaN(novaQuantidade) && novaQuantidade >= 0) {
+    const handleManualEdit = async (value) => {
+      const newValue = parseInt(value);
+      if (!isNaN(newValue) && newValue >= 0) {
+        const delta = newValue - quantidade;
         try {
-          const delta = novaQuantidade - quantidade;
           await onQuantityChange(produto.sku, delta);
-          setQuantidade(novaQuantidade);
+          setQuantidade(newValue);
         } catch (error) {
           console.error('Erro ao atualizar quantidade:', error);
-          setQuantidade(produto.estoque);
         }
       }
       setEditingQuantity(false);
     };
-
-    const calcularPorcentagem = () => {
-      if (!produto?.minimo) return 0;
-      return Math.min((quantidade / produto.minimo) * 100, 100);
-    };
-
-    const getProgressColor = (porcentagem) => {
-      if (porcentagem >= 100) return theme.palette.success.main;
-      if (porcentagem >= 70) return theme.palette.info.main;
-      if (porcentagem >= 30) return theme.palette.warning.main;
-      return theme.palette.error.main;
-    };
-
-    return (
+                  
+                  return (
       <TableRow
         hover
         sx={{
@@ -844,7 +837,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
       >
         <TableCell align="center">{produto.sku}</TableCell>
         <TableCell align="center">{produto.produto}</TableCell>
-        <TableCell align="center">
+                      <TableCell align="center">
           <Box sx={{ 
             display: 'flex', 
             flexDirection: 'column', 
@@ -860,18 +853,18 @@ export default function EstoqueTable({ onMetricasUpdate }) {
               width: '100%',
               maxWidth: 200
             }}>
-              <IconButton
+                            <IconButton
                 onClick={() => handleQuantityChange(-1)}
                 disabled={quantidade <= 0}
-                size="small"
+                              size="small"
                 sx={{
                   border: '1px solid',
                   borderColor: 'divider',
                   '&:hover': { bgcolor: 'action.hover' }
                 }}
-              >
-                <RemoveIcon fontSize="small" />
-              </IconButton>
+                            >
+                              <RemoveIcon fontSize="small" />
+                            </IconButton>
 
               {editingQuantity ? (
                 <TextField
@@ -914,21 +907,21 @@ export default function EstoqueTable({ onMetricasUpdate }) {
                   }}
                 >
                   {quantidade}
-                </Typography>
+                            </Typography>
               )}
 
-              <IconButton
+                            <IconButton
                 onClick={() => handleQuantityChange(1)}
-                size="small"
+                              size="small"
                 sx={{
                   border: '1px solid',
                   borderColor: 'divider',
                   '&:hover': { bgcolor: 'action.hover' }
                 }}
-              >
-                <AddIcon fontSize="small" />
-              </IconButton>
-            </Box>
+                            >
+                              <AddIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
 
             {/* Limites de Estoque */}
             <Typography variant="caption" color="text.secondary">
@@ -957,7 +950,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
             </Box>
 
             {/* Legenda da Barra */}
-            <Box sx={{ 
+                            <Box sx={{ 
               display: 'flex', 
               flexWrap: 'wrap', 
               gap: 0.5, 
@@ -970,7 +963,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
                 gap: 0.5,
                 fontSize: '0.65rem' 
               }}>
-                <Box sx={{ 
+                              <Box sx={{ 
                   width: 8, 
                   height: 8, 
                   borderRadius: '50%', 
@@ -979,12 +972,12 @@ export default function EstoqueTable({ onMetricasUpdate }) {
                 Sem Estoque
               </Typography>
               <Typography variant="caption" sx={{ 
-                display: 'flex', 
+                                display: 'flex',
                 alignItems: 'center', 
                 gap: 0.5,
                 fontSize: '0.65rem' 
               }}>
-                <Box sx={{ 
+                              <Box sx={{ 
                   width: 8, 
                   height: 8, 
                   borderRadius: '50%', 
@@ -998,7 +991,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
                 gap: 0.5,
                 fontSize: '0.65rem' 
               }}>
-                <Box sx={{ 
+                              <Box sx={{ 
                   width: 8, 
                   height: 8, 
                   borderRadius: '50%', 
@@ -1007,12 +1000,12 @@ export default function EstoqueTable({ onMetricasUpdate }) {
                 Em Negociação
               </Typography>
               <Typography variant="caption" sx={{ 
-                display: 'flex', 
+                                display: 'flex',
                 alignItems: 'center', 
                 gap: 0.5,
                 fontSize: '0.65rem' 
               }}>
-                <Box sx={{ 
+                              <Box sx={{ 
                   width: 8, 
                   height: 8, 
                   borderRadius: '50%', 
@@ -1021,7 +1014,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
                 Em Estoque
               </Typography>
               <Typography variant="caption" sx={{ 
-                display: 'flex', 
+                                display: 'flex',
                 alignItems: 'center', 
                 gap: 0.5,
                 fontSize: '0.65rem' 
@@ -1034,53 +1027,52 @@ export default function EstoqueTable({ onMetricasUpdate }) {
                 }} />
                 Estoque Alto
               </Typography>
-            </Box>
-          </Box>
-        </TableCell>
-        <TableCell align="center">{produto.minimo}</TableCell>
-        <TableCell align="center">
-          {typeof produto.precoCompra === 'number' 
-            ? `R$ ${produto.precoCompra.toFixed(2)}` 
-            : 'N/A'}
-        </TableCell>
-        <TableCell align="center">
-          {typeof produto.valorLiquidoMedio === 'number' 
-            ? `R$ ${produto.valorLiquidoMedio.toFixed(2)}` 
-            : 'N/A'}
-        </TableCell>
-        <TableCell align="center">
-          <Chip
-            label={produto.status}
+                          </Box>
+                        </Box>
+                      </TableCell>
+                      <TableCell align="center">
+          {`R$ ${produto.precoCompra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                      </TableCell>
+                      <TableCell align="center">
+          {`R$ ${produto.valorLiquidoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          label={produto.status}
             color={getStatusColor(produto.status)}
-            size="small"
+                          size="small"
             sx={{ minWidth: 100 }}
-          />
-        </TableCell>
-        <TableCell align="center">{produto.mediaVendas?.toFixed(1) || '0.0'}</TableCell>
-        <TableCell align="center">{produto.previsaoDias || 'N/A'}</TableCell>
-        <TableCell align="center">
-          {produto.ultimaVenda 
-            ? new Date(produto.ultimaVenda).toLocaleDateString('pt-BR')
-            : 'N/A'}
-        </TableCell>
-        <TableCell align="center">
-          <Tooltip title="Editar produto">
-            <IconButton
-              size="small"
-              onClick={() => onEdit(produto)}
-              sx={{
-                '&:hover': {
-                  color: theme.palette.primary.main,
-                  bgcolor: alpha(theme.palette.primary.main, 0.1)
-                }
-              }}
-            >
-              <EditIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </TableCell>
-      </TableRow>
-    );
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+          <Typography>
+            {produto.mediaVendas ? produto.mediaVendas.toFixed(1) : '0'}/dia
+                          </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+          <Typography>
+            {produto.previsaoDias ? `${produto.previsaoDias} dias` : 'N/A'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                          {produto.ultimaVenda ? new Date(produto.ultimaVenda).toLocaleDateString('pt-BR') : '-'}
+                      </TableCell>
+                      <TableCell align="center">
+                        <IconButton
+                          size="small"
+            onClick={() => onEdit(produto)}
+                          sx={{ 
+                            '&:hover': {
+                              color: theme.palette.primary.main,
+                              bgcolor: alpha(theme.palette.primary.main, 0.1)
+                            }
+                          }}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  );
   };
 
   const getPrevisaoColor = (dias) => {
@@ -1090,19 +1082,31 @@ export default function EstoqueTable({ onMetricasUpdate }) {
   };
 
   const handleEdit = (produto) => {
-    setEditingProduto(produto);
+    setEditingProduto({...produto}); // Cria uma cópia do produto
   };
 
-  const handleSaveEdit = async (dadosAtualizados) => {
+  const handleSaveEdit = async (produtoEditado) => {
     try {
-      await atualizarEstoque(dadosAtualizados.sku, dadosAtualizados);
-      // Atualizar a lista de produtos
-      fetchProdutos();
+      await atualizarEstoque(produtoEditado.sku, produtoEditado);
+      await fetchProdutos(); // Recarrega os dados após atualização
       setEditingProduto(null);
     } catch (error) {
-      console.error('Erro ao atualizar produto:', error);
+      console.error('Erro ao salvar produto:', error);
     }
   };
+
+  const columns = [
+    { id: 'sku', label: 'SKU', minWidth: 100 },
+    { id: 'produto', label: 'Produto', minWidth: 200 },
+    { id: 'estoque', label: 'Estoque', minWidth: 150 },
+    { id: 'precoCompra', label: 'Preço Compra', minWidth: 120 },
+    { id: 'valorLiquidoTotal', label: 'Valor Líquido Total', minWidth: 120 },
+    { id: 'status', label: 'Status', minWidth: 120 },
+    { id: 'mediaVendas', label: 'Média Vendas', minWidth: 120 },
+    { id: 'previsaoDias', label: 'Previsão', minWidth: 100 },
+    { id: 'ultimaVenda', label: 'Última Venda', minWidth: 120 },
+    { id: 'acoes', label: 'Ações', minWidth: 80 }
+  ];
 
   return (
     <Box sx={{ width: '100%', overflow: 'hidden' }}>
@@ -1159,23 +1163,39 @@ export default function EstoqueTable({ onMetricasUpdate }) {
             <Table stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell>SKU</TableCell>
-                  <TableCell>Produto</TableCell>
-                  <TableCell sx={{ minWidth: 300 }}>Estoque</TableCell>
-                  <TableCell>Preço Compra</TableCell>
-                  <TableCell>Valor Líquido Total</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Média Vendas</TableCell>
-                  <TableCell>Previsão</TableCell>
-                  <TableCell>Última Venda</TableCell>
-                  <TableCell>Ações</TableCell>
+                  {columns.map((column) => (
+                    <TableCell
+                      key={column.id}
+                      align="center"
+                      sx={{
+                        minWidth: column.minWidth,
+                        backgroundColor: theme.palette.primary.main,
+                        color: 'white',
+                        fontWeight: 'bold',
+                        '& .MuiTableSortLabel-root': {
+                          color: 'white',
+                          '&:hover': {
+                            color: alpha(theme.palette.common.white, 0.7),
+                          },
+                          '&.Mui-active': {
+                            color: 'white',
+                            '& .MuiTableSortLabel-icon': {
+                              color: 'white',
+                            },
+                          },
+                        },
+                      }}
+                    >
+                      {column.label}
+                    </TableCell>
+                  ))}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {filteredProdutos.map((produto) => (
                   <CustomTableRow 
                     key={produto.sku} 
-                          produto={produto}
+                    produto={produto}
                     onQuantityChange={handleQuantityChange}
                     onEdit={handleEdit}
                   />
