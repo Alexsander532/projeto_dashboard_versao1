@@ -2,18 +2,12 @@ const { Pool } = require('pg');
 require('dotenv').config();
 
 
-console.log('$$$ DB USER',process.env.DB_USER);
-console.log('$$$ DB HOST',process.env.DB_HOST);
-console.log('$$$ DB DATABASE',process.env.DB_DATABASE);
-console.log('$$$ DB PASSWORD',process.env.DB_PASSWORD);
-console.log('$$$ DB PORT',process.env.DB_PORT);
-
 const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_DATABASE,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT
+  user: 'postgres',
+  host: 'db.nqnlafkiiszhpnzhaugb.supabase.co',
+  database: 'postgres',
+  password: 'Cefet2020.',
+  port: 5432
 });
 
 // Teste de conexão
