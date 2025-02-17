@@ -12,7 +12,10 @@ const pool = new Pool({
   host: 'db.nqnlafkiiszhpnzhaugb.supabase.co',
   database: 'postgres',
   password: 'Cefet2020.',
-  port: 5432
+  port: 5432,
+  ssl: {
+    rejectUnauthorized: false, // Necessário para conexões externas ao Supabase
+  },
 });
 
 // Teste de conexão
