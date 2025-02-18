@@ -144,6 +144,7 @@ def inserir_dados_no_banco(dados_planilha):
 
             except Exception as e:
                 print(f"Erro ao processar linha: {e}")
+                print(f"Erro ao inserir pedido {pedido}: {e}")
                 continue
 
         conn.commit()

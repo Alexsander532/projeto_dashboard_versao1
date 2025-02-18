@@ -6,11 +6,11 @@ load_dotenv()
 
 # Configurações do banco de dados
 DATABASE_CONFIG = {
-    'dbname': os.getenv('DB_DATABASE'),  # Removido o .strip() pois pode ser None
-    'user': os.getenv('DB_USER'),
-    'password': os.getenv('DB_PASSWORD'),
-    'host': os.getenv('DB_HOST'),
-    'port': os.getenv('DB_PORT')
+    'dbname': 'postgres',  # Removido o .strip() pois pode ser None
+    'user':'postgres',
+    'password':'Cefet2020.',
+    'host': 'db.nqnlafkiiszhpnzhaugb.supabase.co',
+    'port': 5432
 }
 
 # Configurações do Google Sheets

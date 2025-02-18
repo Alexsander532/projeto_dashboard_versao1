@@ -111,4 +111,16 @@ router.post('/vendas', async (req, res) => {
   }
 });
 
+router.get('/api/vendas', async (req, res) => {
+    try {
+        console.log('Acessando rota /api/vendas');
+        const result = await pool.query('SELECT * FROM vendas');
+        console.log('Dados obtidos:', result.rows.length);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Erro na rota /api/vendas:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

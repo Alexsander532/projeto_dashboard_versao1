@@ -21,7 +21,7 @@ app.use('/api/metas', metasRoutes);
 
 // Rota de teste
 app.get('/', (req, res) => {
-  res.json({ message: 'API ML Sales - Backend funcionando!' });
+  res.json({ message: 'API ML Sales - Backend funcionando' });
 });
 
 // Tratamento de erros
