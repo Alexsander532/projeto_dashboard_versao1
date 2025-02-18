@@ -19,6 +19,7 @@ import {
 } from 'recharts';
 import axios from 'axios';
 import Sidebar from '../components/Sidebar';
+import api from '../config/api';
 
 function VisaoGeral() {
   const theme = useTheme();
@@ -51,15 +52,15 @@ function VisaoGeral() {
     const fetchData = async () => {
       try {
         // Buscar dados do Mercado Livre
-        const mlResponse = await axios.get('/api/vendas/mercadolivre/overview');
+        const mlResponse = await api.get('/api/vendas/mercadolivre/overview');
         const mlData = mlResponse.data;
 
         // Buscar dados da Magazine Luiza
-        const magaluResponse = await axios.get('/api/vendas/magazineluiza/overview');
+        const magaluResponse = await api.get('/api/vendas/magazineluiza/overview');
         const magaluData = magaluResponse.data;
 
         // Buscar dados do Estoque
-        const estoqueResponse = await axios.get('/api/estoque/overview');
+        const estoqueResponse = await api.get('/api/estoque/overview');
         const estoqueData = estoqueResponse.data;
 
         // Consolidar dados
