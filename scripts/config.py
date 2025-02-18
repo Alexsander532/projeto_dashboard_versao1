@@ -6,11 +6,11 @@ load_dotenv()
 
 # Configurações do banco de dados
 DATABASE_CONFIG = {
-    'dbname': 'postgres',  # Removido o .strip() pois pode ser None
+    'dbname': 'railway',  # Removido o .strip() pois pode ser None
     'user':'postgres',
-    'password':'Cefet2020.',
-    'host': 'db.nqnlafkiiszhpnzhaugb.supabase.co',
-    'port': 5432
+    'password':'DmyaUqXoBAMACqXUWQbUCEpFVnBPadqD',
+    'host': 'centerbeam.proxy.rlwy.net',
+    'port': 34984
 }
 
 # Configurações do Google Sheets

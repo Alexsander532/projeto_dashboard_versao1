@@ -9,10 +9,10 @@ console.log('$$$ DB PORT',process.env.DB_PORT);
 
 const pool = new Pool({
   user: 'postgres',
-  host: 'db.nqnlafkiiszhpnzhaugb.supabase.co',
-  database: 'postgres',
-  password: 'Cefet2020.',
-  port: 5432,
+  host: 'centerbeam.proxy.rlwy.net',
+  database: 'railway',
+  password: 'DmyaUqXoBAMACqXUWQbUCEpFVnBPadqD',
+  port: 34984,
   ssl: {
     rejectUnauthorized: false, // Necessário para conexões externas ao Supabase
   },
