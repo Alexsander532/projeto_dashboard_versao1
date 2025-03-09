@@ -1,34 +1,25 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../db/connection');
+const db = require('../db');
 
 // Buscar metas por mês/ano
 router.get('/', async (req, res) => {
   try {
     const { mes_ano } = req.query;
     
-    if (!mes_ano) {
-      return res.status(400).json({ error: 'Parâmetro mes_ano é obrigatório' });
-    }
-    
-    const data = new Date(mes_ano);
-    const ano = data.getFullYear();
-    const mes = data.getMonth() + 1;
-    
-    const result = await pool.query(`
-      SELECT 
-        m.id,
-        m.sku,
-        m.meta_vendas,
-        m.meta_margem,
-        m.mes_ano,
-        e.descricao as produto
+    // Se não houver metas para o mês solicitado, busca as metas do último mês disponível
+    const query = `
+      WITH UltimoMes AS (
+        SELECT MAX(mes_ano) as ultimo_mes
+        FROM metas_ml
+        WHERE mes_ano <= $1::date
+      )
+      SELECT m.* 
       FROM metas_ml m
-      LEFT JOIN estoque e ON m.sku = e.sku
-      WHERE EXTRACT(YEAR FROM m.mes_ano) = $1 
-      AND EXTRACT(MONTH FROM m.mes_ano) = $2
-    `, [ano, mes]);
+      JOIN UltimoMes u ON DATE_TRUNC('month', m.mes_ano) = DATE_TRUNC('month', u.ultimo_mes)
+    `;
     
+    const result = await db.query(query, [mes_ano]);
     res.json(result.rows);
   } catch (error) {
     console.error('Erro ao buscar metas:', error);
@@ -40,7 +31,7 @@ router.get('/', async (req, res) => {
 router.get('/mes/:mes_ano', async (req, res) => {
   try {
     const { mes_ano } = req.params;
-    const result = await pool.query('SELECT * FROM metas_ml WHERE mes_ano = $1', [mes_ano]);
+    const result = await db.query('SELECT * FROM metas_ml WHERE mes_ano = $1', [mes_ano]);
     res.json(result.rows);
   } catch (error) {
     console.error('Erro ao buscar metas do mês:', error);
@@ -48,47 +39,67 @@ router.get('/mes/:mes_ano', async (req, res) => {
   }
 });
 
-// Atualizar ou criar meta para um SKU
+// Atualizar meta
 router.post('/:sku', async (req, res) => {
   try {
     const { sku } = req.params;
     const { meta_vendas, meta_margem, mes_ano } = req.body;
-    
-    if (!mes_ano) {
-      return res.status(400).json({ error: 'Parâmetro mes_ano é obrigatório' });
+
+    // Validação dos dados
+    if (!sku || !mes_ano) {
+      return res.status(400).json({ error: 'SKU e mês/ano são obrigatórios' });
     }
+
+    // Garante que meta_vendas e meta_margem são números
+    const vendas = parseFloat(meta_vendas) || 0;
+    const margem = parseFloat(meta_margem) || 0;
+
+    // Formata a data corretamente
+    let formattedDate;
+    try {
+      const date = new Date(mes_ano);
+      if (isNaN(date.getTime())) {
+        throw new Error('Data inválida');
+      }
+      formattedDate = date.toISOString().split('T')[0];
+    } catch (error) {
+      return res.status(400).json({ error: 'Data inválida' });
+    }
+
+    // Verifica se já existe uma meta para este SKU e mês
+    const checkQuery = `
+      SELECT * FROM metas_ml 
+      WHERE sku = $1 AND DATE_TRUNC('month', mes_ano) = DATE_TRUNC('month', $2::date)
+    `;
     
-    // Verificar se já existe uma meta para este SKU neste mês/ano
-    const checkResult = await pool.query(`
-      SELECT id FROM metas_ml 
-      WHERE sku = $1 
-      AND EXTRACT(YEAR FROM mes_ano) = EXTRACT(YEAR FROM $2::date)
-      AND EXTRACT(MONTH FROM mes_ano) = EXTRACT(MONTH FROM $2::date)
-    `, [sku, mes_ano]);
-    
+    const checkResult = await db.query(checkQuery, [sku, formattedDate]);
+
     let result;
-    
     if (checkResult.rows.length > 0) {
-      // Atualizar meta existente
-      result = await pool.query(`
+      // Atualiza a meta existente
+      const updateQuery = `
         UPDATE metas_ml 
-        SET 
-          meta_vendas = $1,
-          meta_margem = $2
-        WHERE sku = $3 
-        AND EXTRACT(YEAR FROM mes_ano) = EXTRACT(YEAR FROM $4::date)
-        AND EXTRACT(MONTH FROM mes_ano) = EXTRACT(MONTH FROM $4::date)
+        SET meta_vendas = $1, meta_margem = $2
+        WHERE sku = $3 AND DATE_TRUNC('month', mes_ano) = DATE_TRUNC('month', $4::date)
         RETURNING *
-      `, [meta_vendas, meta_margem, sku, mes_ano]);
+      `;
+      
+      result = await db.query(updateQuery, [vendas, margem, sku, formattedDate]);
     } else {
-      // Criar nova meta
-      result = await pool.query(`
+      // Insere uma nova meta
+      const insertQuery = `
         INSERT INTO metas_ml (sku, meta_vendas, meta_margem, mes_ano)
         VALUES ($1, $2, $3, $4)
         RETURNING *
-      `, [sku, meta_vendas, meta_margem, mes_ano]);
+      `;
+      
+      result = await db.query(insertQuery, [sku, vendas, margem, formattedDate]);
     }
-    
+
+    if (result.rows.length === 0) {
+      throw new Error('Erro ao salvar meta no banco de dados');
+    }
+
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Erro ao atualizar meta:', error);
@@ -109,7 +120,7 @@ router.post('/novo-mes', async (req, res) => {
       ORDER BY sku, mes_ano DESC
     `;
     
-    const lastMonthResult = await pool.query(lastMonthQuery, [mes_ano]);
+    const lastMonthResult = await db.query(lastMonthQuery, [mes_ano]);
     
     // Se encontrou metas anteriores, copia para o novo mês
     if (lastMonthResult.rows.length > 0) {
@@ -119,7 +130,7 @@ router.post('/novo-mes', async (req, res) => {
           VALUES ($1, $2, $3, $4)
           ON CONFLICT (sku, mes_ano) DO NOTHING
         `;
-        return pool.query(query, [meta.sku, meta.meta_vendas, meta.meta_margem, mes_ano]);
+        return db.query(query, [meta.sku, meta.meta_vendas, meta.meta_margem, mes_ano]);
       });
       
       await Promise.all(insertPromises);

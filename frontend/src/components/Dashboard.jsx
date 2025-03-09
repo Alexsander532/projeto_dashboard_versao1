@@ -31,7 +31,6 @@ import DashboardCharts from './DashboardCharts';
 import MetricCard from './MetricCard';
 import { fetchVendasML } from '../services/vendasMLService';
 import VendasTable from './vendasTable';
-import api from '../config/api';
 
 export default function Dashboard() {
   const theme = useTheme();
@@ -53,7 +52,6 @@ export default function Dashboard() {
   const [skuSelecionado, setSkuSelecionado] = useState('todos');
   const [skus, setSkus] = useState([]);
   const [dadosVendas, setDadosVendas] = useState([]);
-  const [vendas, setVendas] = useState([]);
 
   useEffect(() => {
     const hoje = new Date();
@@ -171,19 +169,6 @@ export default function Dashboard() {
   const handleToggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
-
-  const fetchVendas = async () => {
-    try {
-      const response = await api.get('/api/vendas');
-      setVendas(response.data);
-    } catch (error) {
-      console.error('Erro ao buscar vendas:', error);
-    }
-  };
-
-  useEffect(() => {
-    fetchVendas();
-  }, []);
 
   return (
     <Box sx={{ 
@@ -650,10 +635,7 @@ export default function Dashboard() {
           <Typography variant="h6" sx={{ mb: 3, fontWeight: 'medium', color: theme.palette.text.primary }}>
             Detalhamento de Pedidos
           </Typography>
-          <VendasTable 
-            vendas={vendas} 
-            onVendaUpdate={fetchVendas} 
-          />
+          <VendasTable vendas={dadosVendas} />
         </Paper>
       </Box>
     </Box>

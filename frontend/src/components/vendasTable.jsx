@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Box,
   Paper,
@@ -13,22 +13,11 @@ import {
   alpha,
   Typography,
   Chip,
-  TextField,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  IconButton,
-  Alert,
-  Snackbar,
-  Button
 } from '@mui/material';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { styled } from '@mui/material/styles';
 import { motion } from 'framer-motion';
-import { Edit as EditIcon, Save as SaveIcon, Close as CloseIcon } from '@mui/icons-material';
-import axios from 'axios';
 
 // Componente de linha animada
 const AnimatedTableRow = styled(motion.tr)(({ theme }) => ({
@@ -90,25 +79,10 @@ const EnvioChip = styled(Chip)(({ type, theme }) => {
   };
 });
 
-export default function VendasTable({ vendas, onVendaUpdate }) {
+export default function VendasTable({ vendas }) {
   const theme = useTheme();
   const [page, setPage] = React.useState(0);
   const [rowsPerPage, setRowsPerPage] = React.useState(50);
-  const [editingCell, setEditingCell] = useState(null);
-  const [editValue, setEditValue] = useState('');
-  const [openDialog, setOpenDialog] = useState(false);
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    type: 'info'
-  });
-  const [confirmDialog, setConfirmDialog] = useState({
-    open: false,
-    pedido: null,
-    campo: null,
-    valorAntigo: null,
-    valorNovo: null
-  });
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -120,10 +94,9 @@ export default function VendasTable({ vendas, onVendaUpdate }) {
   };
 
   const formatarValor = (valor) => {
-    if (valor === null || valor === undefined) return 'R$ 0,00';
     const numero = typeof valor === 'string' ? parseFloat(valor) : valor;
-    if (isNaN(numero)) return 'R$ 0,00';
-    return `R$ ${numero.toFixed(2).replace('.', ',')}`;
+    if (isNaN(numero)) return 'R$ 0.00';
+    return `R$ ${numero.toFixed(2)}`;
   };
 
   const formatarPorcentagem = (valor) => {
@@ -152,25 +125,34 @@ export default function VendasTable({ vendas, onVendaUpdate }) {
     }
   };
 
-  // Processamento dos dados com os campos originais da tabela vendas_ml
+  // Processamento dos dados com validação mais rigorosa e ordenação por data
   const dadosProcessados = vendas
-    .map(venda => ({
-      pedido: venda.pedido || '',
+    .map(venda => {
+      if (typeof venda === 'object' && venda !== null) {
+        return {
+          pedido: venda.pedido || '-',
           data: venda.data,
           dataObj: new Date(venda.data || 0),
-      sku: venda.sku || '',
-      unidades: venda.unidades || 0,
-      valor_comprado: venda.valor_comprado || 0,
-      valor_vendido: venda.valor_vendido || 0,
-      taxas: venda.taxas || 0,
-      frete: venda.frete || 0,
-      ctl: venda.ctl || 0,
-      valor_liquido: venda.valor_liquido || 0,
-      lucro: venda.lucro || 0,
-      margem_lucro: venda.margem_lucro || 0,
+          sku: venda.sku || '-',
+          qtd: venda.unidades || '1',
+          valorComprado: Number(venda.valorComprado) || 0,
+          valorVendido: Number(venda.valorVendido) || 0,
+          taxas: Number(venda.taxas) || 0,
+          frete: Number(venda.frete) || 0,
+          ctl: Number(venda.ctl) || 0,
+          valorLiquido: Number(venda.valorLiquido) || 0,
+          lucro: Number(venda.lucro) || 0,
+          margem: Number(venda.margemLucro) || 0,
           envio: venda.envio || 'FULL'
-    }))
-    .sort((a, b) => b.dataObj - a.dataObj);
+        };
+      }
+      return null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      // Ordenação por timestamp decrescente
+      return b.dataObj - a.dataObj;
+    });
 
   // Animação para as linhas
   const rowVariants = {
@@ -186,280 +168,89 @@ export default function VendasTable({ vendas, onVendaUpdate }) {
     })
   };
 
-  const editableCells = ['unidades', 'valor_comprado', 'valor_vendido', 'taxas', 'frete', 'ctl'];
-
-  const handleStartEdit = (pedido, campo, valor) => {
-    setEditingCell({ pedido, campo });
-    setEditValue(valor.toString());
-  };
-
-  const handleSaveEdit = async (pedido, campo) => {
-    const venda = vendas.find(v => v.pedido === pedido);
-    const valorAntigo = venda[campo];
-    const valorNovo = Number(editValue);
-
-    setConfirmDialog({
-      open: true,
-      pedido,
-      campo,
-      valorAntigo,
-      valorNovo
-    });
-  };
-
-  const handleConfirmEdit = async () => {
-    const { pedido, campo, valorNovo } = confirmDialog;
-    
-    try {
-      await axios.put(`/api/vendas/${pedido}`, {
-        [campo]: valorNovo
-      });
-
-      setSnackbar({
-        open: true,
-        message: `Valor alterado com sucesso!`,
-        type: 'success'
-      });
-
-      // Atualiza os dados
-      if (onVendaUpdate) {
-        onVendaUpdate();
-      }
-    } catch (error) {
-      console.error('Erro ao atualizar valor:', error);
-      setSnackbar({
-        open: true,
-        message: 'Erro ao atualizar valor',
-        type: 'error'
-      });
-    }
-
-    setConfirmDialog({ ...confirmDialog, open: false });
-    setEditingCell(null);
-  };
-
   return (
-    <>
-      <Paper 
-        elevation={0}
-        sx={{
-          borderRadius: '12px',
-          overflow: 'hidden',
-          border: '1px solid',
-          borderColor: theme.palette.divider,
-          height: 'calc(100vh - 100px)',
-      display: 'flex', 
-          flexDirection: 'column'
-        }}
-      >
-        <TableContainer sx={{ flexGrow: 1 }}>
-          <Table stickyHeader>
+    <Paper 
+      elevation={0}
+      sx={{
+        borderRadius: '12px',
+        overflow: 'hidden',
+        border: '1px solid',
+        borderColor: theme.palette.divider,
+        height: 'calc(100vh - 100px)',
+        display: 'flex',
+        flexDirection: 'column'
+      }}
+    >
+      <TableContainer sx={{ flexGrow: 1 }}>
+        <Table stickyHeader>
           <TableHead>
             <TableRow>
-                <StyledTableCell className="header">Pedido</StyledTableCell>
-                <StyledTableCell className="header">Data</StyledTableCell>
-                <StyledTableCell className="header">SKU</StyledTableCell>
-                <StyledTableCell className="header">Qtd</StyledTableCell>
-                <StyledTableCell className="header">Comprado</StyledTableCell>
-                <StyledTableCell className="header">Vendido</StyledTableCell>
-                <StyledTableCell className="header">Taxas</StyledTableCell>
-                <StyledTableCell className="header">Frete</StyledTableCell>
-                <StyledTableCell className="header">CTL</StyledTableCell>
-                <StyledTableCell className="header">Valor Líquido</StyledTableCell>
-                <StyledTableCell className="header">Lucro</StyledTableCell>
-                <StyledTableCell className="header">Margem</StyledTableCell>
-                <StyledTableCell className="header">Envio</StyledTableCell>
+              <StyledTableCell className="header">Pedido</StyledTableCell>
+              <StyledTableCell className="header">Data</StyledTableCell>
+              <StyledTableCell className="header">SKU</StyledTableCell>
+              <StyledTableCell className="header">Qtd</StyledTableCell>
+              <StyledTableCell className="header">Comprado</StyledTableCell>
+              <StyledTableCell className="header">Vendido</StyledTableCell>
+              <StyledTableCell className="header">Taxas</StyledTableCell>
+              <StyledTableCell className="header">Frete</StyledTableCell>
+              <StyledTableCell className="header">CTL</StyledTableCell>
+              <StyledTableCell className="header">Valor Líquido</StyledTableCell>
+              <StyledTableCell className="header">Lucro</StyledTableCell>
+              <StyledTableCell className="header">Margem</StyledTableCell>
+              <StyledTableCell className="header">Envio</StyledTableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {dadosProcessados
               .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
               .map((venda, index) => (
-                  <AnimatedTableRow
-                    key={venda.pedido}
-                    component={motion.tr}
-                    variants={rowVariants}
-                    initial="hidden"
-                    animate="visible"
-                    custom={index}
-                  >
-                    <StyledTableCell>{venda.pedido}</StyledTableCell>
-                    <StyledTableCell>{formatarData(venda.data)}</StyledTableCell>
-                    <StyledTableCell>{venda.sku}</StyledTableCell>
-                    <StyledTableCell>
-                      {editingCell?.pedido === venda.pedido && editingCell?.campo === 'unidades' ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <TextField
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            size="small"
-                            type="number"
-                            autoFocus
-                            sx={{ width: '80px' }}
-                          />
-                          <IconButton size="small" onClick={() => handleSaveEdit(venda.pedido, 'unidades')}>
-                            <SaveIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" onClick={() => setEditingCell(null)}>
-                            <CloseIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      ) : (
-                        <Box onClick={() => handleStartEdit(venda.pedido, 'unidades', venda.unidades)}>
-                          {venda.unidades}
-                        </Box>
-                      )}
-                    </StyledTableCell>
-                    <StyledTableCell>
-                      {editingCell?.pedido === venda.pedido && editingCell?.campo === 'valor_comprado' ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <TextField
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            size="small"
-                            type="number"
-                            autoFocus
-                            sx={{ width: '100px' }}
-                          />
-                          <IconButton size="small" onClick={() => handleSaveEdit(venda.pedido, 'valor_comprado')}>
-                            <SaveIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" onClick={() => setEditingCell(null)}>
-                            <CloseIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      ) : (
-                        <Box onClick={() => handleStartEdit(venda.pedido, 'valor_comprado', venda.valor_comprado)}>
-                          {formatarValor(venda.valor_comprado)}
-                        </Box>
-                      )}
-                    </StyledTableCell>
-                    <StyledTableCell>
-                      {editingCell?.pedido === venda.pedido && editingCell?.campo === 'valor_vendido' ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <TextField
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            size="small"
-                            type="number"
-                            autoFocus
-                            sx={{ width: '100px' }}
-                          />
-                          <IconButton size="small" onClick={() => handleSaveEdit(venda.pedido, 'valor_vendido')}>
-                            <SaveIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" onClick={() => setEditingCell(null)}>
-                            <CloseIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      ) : (
-                        <Box onClick={() => handleStartEdit(venda.pedido, 'valor_vendido', venda.valor_vendido)}>
-                          {formatarValor(venda.valor_vendido)}
-                        </Box>
-                      )}
-                    </StyledTableCell>
-                    <StyledTableCell>
-                      {editingCell?.pedido === venda.pedido && editingCell?.campo === 'taxas' ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <TextField
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            size="small"
-                            type="number"
-                            autoFocus
-                            sx={{ width: '100px' }}
-                          />
-                          <IconButton size="small" onClick={() => handleSaveEdit(venda.pedido, 'taxas')}>
-                            <SaveIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" onClick={() => setEditingCell(null)}>
-                            <CloseIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      ) : (
-                        <Box onClick={() => handleStartEdit(venda.pedido, 'taxas', venda.taxas)}>
-                          {formatarValor(venda.taxas)}
-                        </Box>
-                      )}
-                    </StyledTableCell>
-                    <StyledTableCell>
-                      {editingCell?.pedido === venda.pedido && editingCell?.campo === 'frete' ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <TextField
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            size="small"
-                            type="number"
-                            autoFocus
-                            sx={{ width: '100px' }}
-                          />
-                          <IconButton size="small" onClick={() => handleSaveEdit(venda.pedido, 'frete')}>
-                            <SaveIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" onClick={() => setEditingCell(null)}>
-                            <CloseIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      ) : (
-                        <Box onClick={() => handleStartEdit(venda.pedido, 'frete', venda.frete)}>
-                          {formatarValor(venda.frete)}
-                        </Box>
-                      )}
-                    </StyledTableCell>
-                    <StyledTableCell>
-                      {editingCell?.pedido === venda.pedido && editingCell?.campo === 'ctl' ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <TextField
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            size="small"
-                            type="number"
-                            autoFocus
-                            sx={{ width: '100px' }}
-                          />
-                          <IconButton size="small" onClick={() => handleSaveEdit(venda.pedido, 'ctl')}>
-                            <SaveIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" onClick={() => setEditingCell(null)}>
-                            <CloseIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      ) : (
-                        <Box onClick={() => handleStartEdit(venda.pedido, 'ctl', venda.ctl)}>
-                          {formatarValor(venda.ctl)}
-                        </Box>
-                      )}
-                    </StyledTableCell>
-                    <StyledTableCell>{formatarValor(venda.valor_liquido)}</StyledTableCell>
-                    <StyledTableCell>
-                      <Typography 
-                        color={venda.lucro >= 0 ? 'success.main' : 'error.main'}
-                        fontWeight="medium"
-                      >
-                    {formatarValor(venda.lucro)}
-                      </Typography>
-                    </StyledTableCell>
-                    <StyledTableCell>
-                      <Typography 
-                        color={venda.margem_lucro >= 0 ? 'success.main' : 'error.main'}
-                        fontWeight="medium"
-                      >
-                        {formatarPorcentagem(venda.margem_lucro)}%
-                      </Typography>
-                    </StyledTableCell>
-                    <StyledTableCell>
-                      <EnvioChip
-                        label={venda.envio}
-                        type={venda.envio}
-                        size="small"
-                      />
-                    </StyledTableCell>
-                  </AnimatedTableRow>
-            ))}
+                <AnimatedTableRow
+                  key={venda.pedido}
+                  component={motion.tr}
+                  variants={rowVariants}
+                  initial="hidden"
+                  animate="visible"
+                  custom={index}
+                >
+                  <StyledTableCell>{venda.pedido}</StyledTableCell>
+                  <StyledTableCell>{formatarData(venda.data)}</StyledTableCell>
+                  <StyledTableCell>{venda.sku}</StyledTableCell>
+                  <StyledTableCell>{venda.qtd}</StyledTableCell>
+                  <StyledTableCell>{formatarValor(venda.valorComprado)}</StyledTableCell>
+                  <StyledTableCell>{formatarValor(venda.valorVendido)}</StyledTableCell>
+                  <StyledTableCell>{formatarValor(venda.taxas)}</StyledTableCell>
+                  <StyledTableCell>{formatarValor(venda.frete)}</StyledTableCell>
+                  <StyledTableCell>{formatarValor(venda.ctl)}</StyledTableCell>
+                  <StyledTableCell>{formatarValor(venda.valorLiquido)}</StyledTableCell>
+                  <StyledTableCell>
+                    <Typography 
+                      color={venda.lucro >= 0 ? 'success.main' : 'error.main'}
+                      fontWeight="medium"
+                    >
+                      {formatarValor(venda.lucro)}
+                    </Typography>
+                  </StyledTableCell>
+                  <StyledTableCell>
+                    <Typography 
+                      color={venda.margem >= 0 ? 'success.main' : 'error.main'}
+                      fontWeight="medium"
+                    >
+                      {formatarPorcentagem(venda.margem)}%
+                    </Typography>
+                  </StyledTableCell>
+                  <StyledTableCell>
+                    <EnvioChip
+                      label={venda.envio}
+                      type={venda.envio}
+                      size="small"
+                    />
+                  </StyledTableCell>
+                </AnimatedTableRow>
+              ))}
           </TableBody>
         </Table>
         <TablePagination
-            rowsPerPageOptions={[50, 100, 200]}
+          rowsPerPageOptions={[50, 100, 200]}
           component="div"
           count={dadosProcessados.length}
           rowsPerPage={rowsPerPage}
@@ -469,7 +260,7 @@ export default function VendasTable({ vendas, onVendaUpdate }) {
           labelRowsPerPage="Linhas por página"
           labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
           sx={{
-              borderTop: `1px solid ${theme.palette.divider}`,
+            borderTop: `1px solid ${theme.palette.divider}`,
             color: theme.palette.text.secondary,
             '.MuiTablePagination-select': {
               color: theme.palette.text.primary
@@ -480,57 +271,6 @@ export default function VendasTable({ vendas, onVendaUpdate }) {
           }}
         />
       </TableContainer>
-      </Paper>
-
-      {/* Diálogo de Confirmação */}
-      <Dialog
-        open={confirmDialog.open}
-        onClose={() => setConfirmDialog({ ...confirmDialog, open: false })}
-      >
-        <DialogTitle>Confirmar Alteração</DialogTitle>
-        <DialogContent>
-          <Typography variant="body1" sx={{ mt: 2 }}>
-            Deseja alterar o valor do campo {confirmDialog.campo} do pedido {confirmDialog.pedido}?
-          </Typography>
-          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Typography>
-              De: {formatarValor(confirmDialog.valorAntigo)}
-            </Typography>
-            <Typography>
-              Para: {formatarValor(confirmDialog.valorNovo)}
-            </Typography>
-    </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => setConfirmDialog({ ...confirmDialog, open: false })}
-          >
-            Cancelar
-          </Button>
-          <Button 
-            onClick={handleConfirmEdit} 
-            variant="contained" 
-            color="primary"
-          >
-            Confirmar
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Snackbar de Confirmação */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-      >
-        <Alert 
-          onClose={() => setSnackbar({ ...snackbar, open: false })} 
-          severity={snackbar.type}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </>
+    </Paper>
   );
 }
