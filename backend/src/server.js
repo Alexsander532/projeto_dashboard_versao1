@@ -24,15 +24,21 @@ app.use((req, res, next) => {
 const vendasRoutes = require('./routes/vendas');
 const estoqueRoutes = require('./routes/estoque');
 const metasRoutes = require('./routes/metas');
+const produtosRoutes = require('./routes/produtos');
 
 // Registrar rotas
 app.use('/api/metas', metasRoutes);
 app.use('/api/vendas', vendasRoutes);
 app.use('/api/estoque', estoqueRoutes);
+app.use('/api/produtos', produtosRoutes);
 
-// Rota de teste
-app.get('/api/test', (req, res) => {
-  res.json({ message: 'API está funcionando!' });
+// Rota de teste para verificar o servidor
+app.get('/api/status', (req, res) => {
+  res.json({
+    status: 'online',
+    timestamp: new Date(),
+    message: 'API funcionando corretamente'
+  });
 });
 
 const startServer = async () => {
@@ -43,6 +49,8 @@ const startServer = async () => {
     app.listen(PORT, () => {
       console.log(`Servidor rodando na porta ${PORT}`);
       console.log('Rotas disponíveis:');
+      console.log('- GET /api/produtos');
+      console.log('- GET /api/produtos/check');
       console.log('- POST /api/metas/:sku');
       console.log('- GET /api/metas?mes_ano=YYYY-MM-DD');
       console.log('- GET /api/vendas/metricas-metas?mes_ano=YYYY-MM-DD');

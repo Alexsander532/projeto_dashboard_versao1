@@ -486,7 +486,7 @@ const Metas = () => {
       
       <Box 
         sx={{ 
-          display: 'flex',
+      display: 'flex',
           flexDirection: 'column',
           ml: '64px',
           width: 'calc(100% - 64px)',
@@ -504,28 +504,28 @@ const Metas = () => {
           <Grid container spacing={2} sx={{ maxWidth: 500, justifyContent: 'flex-end' }}>
             <Grid item xs={6}>
               <FormControl fullWidth size="small">
-                <InputLabel>Ano</InputLabel>
+                  <InputLabel>Ano</InputLabel>
                 <Select value={selectedYear} onChange={handleYearChange}>
                   {[2023, 2024, 2025].map(year => (
-                    <MenuItem key={year} value={year}>{year}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                      <MenuItem key={year} value={year}>{year}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
             </Grid>
             <Grid item xs={6}>
               <FormControl fullWidth size="small">
-                <InputLabel>Mês</InputLabel>
+                  <InputLabel>Mês</InputLabel>
                 <Select value={selectedMonth} onChange={handleMonthChange}>
                   {Array.from({ length: 12 }, (_, i) => (
                     <MenuItem key={i + 1} value={i + 1}>
                       {format(new Date(2024, i), 'MMMM', { locale: ptBR })}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
             </Grid>
           </Grid>
-        </Box>
+          </Box>
 
         <MetasMetrics stats={totalStats} />
         
@@ -536,7 +536,7 @@ const Metas = () => {
           onGoalChange={handleGoalChange}
           onMarginGoalChange={handleMarginGoalChange}
         />
-      </Box>
+                </Box>
     </Box>
   );
 };

@@ -12,40 +12,43 @@ async function setupDatabase() {
       'utf8'
     );
     
-    // Executar o script SQL
-    await pool.query(createMetasMlTableSQL);
-    console.log('Tabela metas_ml criada ou verificada com sucesso!');
+    // Ler o arquivo SQL de criação da tabela produtos
+    const createProdutosTableSQL = fs.readFileSync(
+      path.join(__dirname, 'migrations', 'create_produtos_table.sql'),
+      'utf8'
+    );
     
-    // Verificar se a tabela existe
-    const checkTableResult = await pool.query(`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_name = 'metas_ml'
-      );
+    // Executar os scripts SQL
+    await pool.query(createMetasMlTableSQL);
+    await pool.query(createProdutosTableSQL);
+    
+    // Verificar se as tabelas foram criadas
+    const checkTables = await pool.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_name IN ('metas_ml', 'produtos');
     `);
     
-    if (checkTableResult.rows[0].exists) {
-      console.log('Tabela metas_ml existe no banco de dados Railway.');
-      
-      // Verificar a estrutura da tabela
-      const tableStructure = await pool.query(`
-        SELECT column_name, data_type 
-        FROM information_schema.columns 
-        WHERE table_name = 'metas_ml';
-      `);
-      
-      console.log('Estrutura da tabela metas_ml:');
-      tableStructure.rows.forEach(column => {
-        console.log(`- ${column.column_name}: ${column.data_type}`);
-      });
+    const tables = checkTables.rows.map(row => row.table_name);
+    
+    if (tables.includes('metas_ml')) {
+      console.log('Tabela metas_ml criada com sucesso!');
     } else {
       console.error('ERRO: A tabela metas_ml não foi criada corretamente!');
+    }
+    
+    if (tables.includes('produtos')) {
+      console.log('Tabela produtos criada com sucesso!');
+    } else {
+      console.error('ERRO: A tabela produtos não foi criada corretamente!');
     }
     
     console.log('Configuração do banco de dados concluída!');
   } catch (error) {
     console.error('Erro ao configurar o banco de dados:', error);
+  } finally {
+    await pool.end();
   }
 }
 

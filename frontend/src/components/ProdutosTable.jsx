@@ -17,7 +17,8 @@ import {
   DialogActions,
   Button,
   Box,
-  Typography
+  Typography,
+  Paper
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -25,6 +26,7 @@ import {
   Warning as WarningIcon
 } from '@mui/icons-material';
 import ProdutoForm from './ProdutoForm';
+import { fetchProdutos, addProduto, updateProduto, deleteProduto } from '../services/produtosService';
 
 export default function ProdutosTable({ formOpen, setFormOpen }) {
   const theme = useTheme();
@@ -34,45 +36,56 @@ export default function ProdutosTable({ formOpen, setFormOpen }) {
   const [selectedProduto, setSelectedProduto] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [produtoToDelete, setProdutoToDelete] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Carregar dados do localStorage ao iniciar
   useEffect(() => {
-    const savedProdutos = localStorage.getItem('produtos');
-    if (savedProdutos) {
-      setProdutos(JSON.parse(savedProdutos));
-    } else {
-      // Dados mockados iniciais
-      const mockProdutos = [
-        {
-          id: 1,
-          sku: 'MLB123',
-          nome: 'Produto Teste ML',
-          cmv: 79.90,
-          estoque: 50,
-          status: 'ativo',
-          imagemUrl: ''
-        },
-        {
-          id: 2,
-          sku: 'MAG456',
-          nome: 'Produto Teste Magalu',
-          cmv: 129.90,
-          estoque: 30,
-          status: 'ativo',
-          imagemUrl: ''
-        }
-      ];
-      setProdutos(mockProdutos);
-      localStorage.setItem('produtos', JSON.stringify(mockProdutos));
-    }
+    const loadProdutos = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchProdutos();
+        
+        const formattedData = data.map(item => ({
+          id: item.id,
+          sku: item.sku,
+          nome: item.nome,
+          cmv: Number(item.cmv_atual),
+          estoque: Number(item.estoque),
+          status: item.status.toLowerCase(),
+          imagemUrl: item.imagem_url || ''
+        }));
+        
+        setProdutos(formattedData);
+      } catch (error) {
+        console.error('Erro ao carregar produtos:', error);
+        const mockProdutos = [
+          {
+            id: 1,
+            sku: 'MLB123',
+            nome: 'Produto Teste ML',
+            cmv: 79.90,
+            estoque: 50,
+            status: 'ativo',
+            imagemUrl: ''
+          },
+          {
+            id: 2,
+            sku: 'MAG456',
+            nome: 'Produto Teste Magalu',
+            cmv: 129.90,
+            estoque: 30,
+            status: 'ativo',
+            imagemUrl: ''
+          }
+        ];
+        setProdutos(mockProdutos);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProdutos();
   }, []);
-
-  // Salvar no localStorage sempre que produtos mudar
-  useEffect(() => {
-    if (produtos.length > 0) {
-      localStorage.setItem('produtos', JSON.stringify(produtos));
-    }
-  }, [produtos]);
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -93,35 +106,93 @@ export default function ProdutosTable({ formOpen, setFormOpen }) {
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
-    const newProdutos = produtos.filter(p => p.id !== produtoToDelete.id);
-    setProdutos(newProdutos);
-    localStorage.setItem('produtos', JSON.stringify(newProdutos));
-    setDeleteDialogOpen(false);
-    setProdutoToDelete(null);
+  const confirmDelete = async () => {
+    try {
+      await deleteProduto(produtoToDelete.sku);
+      
+      const newProdutos = produtos.filter(p => p.sku !== produtoToDelete.sku);
+      setProdutos(newProdutos);
+      setDeleteDialogOpen(false);
+      setProdutoToDelete(null);
+    } catch (error) {
+      console.error('Erro ao excluir produto:', error);
+      alert('Erro ao excluir produto. Tente novamente.');
+    }
   };
 
-  const handleFormSubmit = (formData) => {
-    let newProdutos;
-    if (selectedProduto) {
-      // Editar produto existente
-      newProdutos = produtos.map(p =>
-        p.id === selectedProduto.id ? { ...formData, id: p.id } : p
-      );
-    } else {
-      // Adicionar novo produto
-      const newId = produtos.length > 0 ? Math.max(...produtos.map(p => p.id)) + 1 : 1;
-      newProdutos = [...produtos, { ...formData, id: newId }];
+  const handleFormSubmit = async (formData) => {
+    try {
+      let newProdutos;
+      
+      if (selectedProduto) {
+        const updatedProduto = await updateProduto(selectedProduto.sku, {
+          nome: formData.nome,
+          cmv_atual: formData.cmv,
+          estoque: formData.estoque,
+          status: formData.status,
+          imagem_url: formData.imagemUrl
+        });
+        
+        newProdutos = produtos.map(p =>
+          p.sku === selectedProduto.sku ? {
+            id: p.id,
+            sku: p.sku,
+            nome: updatedProduto.nome,
+            cmv: Number(updatedProduto.cmv_atual),
+            estoque: Number(updatedProduto.estoque),
+            status: updatedProduto.status.toLowerCase(),
+            imagemUrl: updatedProduto.imagem_url || ''
+          } : p
+        );
+      } else {
+        const newProduto = await addProduto({
+          sku: formData.sku,
+          nome: formData.nome,
+          cmv_atual: formData.cmv,
+          estoque: formData.estoque,
+          status: formData.status,
+          imagem_url: formData.imagemUrl
+        });
+        
+        newProdutos = [...produtos, {
+          id: newProduto.id,
+          sku: newProduto.sku,
+          nome: newProduto.nome,
+          cmv: Number(newProduto.cmv_atual),
+          estoque: Number(newProduto.estoque),
+          status: newProduto.status.toLowerCase(),
+          imagemUrl: newProduto.imagem_url || ''
+        }];
+      }
+      
+      setProdutos(newProdutos);
+      setFormOpen(false);
+      setSelectedProduto(null);
+    } catch (error) {
+      console.error('Erro ao salvar produto:', error);
+      alert('Erro ao salvar produto. Tente novamente.');
     }
-    setProdutos(newProdutos);
-    localStorage.setItem('produtos', JSON.stringify(newProdutos));
-    setFormOpen(false);
-    setSelectedProduto(null);
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+        <Typography>Carregando produtos...</Typography>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3, color: 'error.main' }}>
+        <Typography>{error}</Typography>
+      </Box>
+    );
+  }
 
   return (
     <>
-      <TableContainer>
+      <TableContainer component={Paper}>
         <Table stickyHeader>
           <TableHead>
             <TableRow>
