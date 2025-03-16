@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const path = require('path');
 require('dotenv').config();
 const pool = require('./db/connection');
 
@@ -15,8 +14,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // Middleware de logging geral
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.url}`);
-  console.log('Body:', req.body);
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
   next();
 });
 
@@ -27,34 +25,42 @@ const metasRoutes = require('./routes/metas');
 const produtosRoutes = require('./routes/produtos');
 
 // Registrar rotas
-app.use('/api/metas', metasRoutes);
 app.use('/api/vendas', vendasRoutes);
 app.use('/api/estoque', estoqueRoutes);
-app.use('/api/produtos', produtosRoutes);
+app.use('/api/metas', metasRoutes);
+app.use('/', produtosRoutes);
 
-// Rota de teste para verificar o servidor
+// Rota de teste para verificar se o servidor está rodando
 app.get('/api/status', (req, res) => {
   res.json({
     status: 'online',
     timestamp: new Date(),
-    message: 'API funcionando corretamente'
+    message: 'Servidor está funcionando'
   });
+});
+
+// Tratamento de erros para rotas não encontradas
+app.use((req, res) => {
+  console.log(`Rota não encontrada: ${req.method} ${req.url}`);
+  res.status(404).json({ error: 'Rota não encontrada' });
 });
 
 const startServer = async () => {
   try {
+    // Testar conexão com o banco
     await pool.query('SELECT NOW()');
     console.log('Conexão com o banco de dados estabelecida');
 
+    // Iniciar o servidor
     app.listen(PORT, () => {
       console.log(`Servidor rodando na porta ${PORT}`);
       console.log('Rotas disponíveis:');
-      console.log('- GET /api/produtos');
-      console.log('- GET /api/produtos/check');
-      console.log('- POST /api/metas/:sku');
-      console.log('- GET /api/metas?mes_ano=YYYY-MM-DD');
-      console.log('- GET /api/vendas/metricas-metas?mes_ano=YYYY-MM-DD');
-      console.log('- GET /api/vendas/por-sku?mes_ano=YYYY-MM-DD');
+      console.log('- GET    /api/produtos');
+      console.log('- GET    /api/produtos/:sku');
+      console.log('- POST   /api/produtos');
+      console.log('- PUT    /api/produtos/:sku');
+      console.log('- DELETE /api/produtos/:sku');
+      console.log('- GET    /api/status');
     });
   } catch (error) {
     console.error('Erro ao iniciar servidor:', error);
