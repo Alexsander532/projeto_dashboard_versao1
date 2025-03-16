@@ -32,7 +32,8 @@ export const fetchVendasML = async (filtros = {}) => {
     // Processa os dados recebidos mapeando para os nomes corretos
     return response.data.map(venda => ({
       pedido: venda.pedido,
-      data: venda.data,
+      // Garante que a data seja tratada corretamente com o fuso horário local
+      data: new Date(venda.data),
       sku: venda.sku,
       unidades: Number(venda.unidades),
       valorComprado: Number(venda.valor_comprado),

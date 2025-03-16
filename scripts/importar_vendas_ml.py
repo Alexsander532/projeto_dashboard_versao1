@@ -1,7 +1,7 @@
 import gspread
 import psycopg2
 from oauth2client.service_account import ServiceAccountCredentials
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 import logging
 from config import DATABASE_CONFIG, GOOGLE_SHEETS_CREDENTIALS, PLANILHA_NOME, ABA_NOME
@@ -65,7 +65,14 @@ def tratar_valor(valor, tipo=float, default=0):
         elif tipo == datetime:
             if not valor.strip():
                 return default
-            return datetime.strptime(valor.strip(), '%d/%m/%y %H:%M:%S')
+            # Converte a string para datetime
+            data = datetime.strptime(valor.strip(), '%d/%m/%y %H:%M:%S')
+            
+            # Ajusta o fuso horário para Brasil (UTC-3)
+            # Isso garante que a data seja armazenada corretamente no banco
+            data_ajustada = data + timedelta(hours=3)
+            
+            return data_ajustada
         else:
             return valor.strip()
     except Exception as e:
