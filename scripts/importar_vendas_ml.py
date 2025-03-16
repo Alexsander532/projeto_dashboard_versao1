@@ -68,11 +68,10 @@ def tratar_valor(valor, tipo=float, default=0):
             # Converte a string para datetime
             data = datetime.strptime(valor.strip(), '%d/%m/%y %H:%M:%S')
             
-            # Ajusta o fuso horário para Brasil (UTC-3)
-            # Isso garante que a data seja armazenada corretamente no banco
-            data_ajustada = data + timedelta(hours=3)
+            # Adiciona 1 dia à data para corrigir o problema de fuso horário
+            data_corrigida = data + timedelta(days=1)
             
-            return data_ajustada
+            return data_corrigida
         else:
             return valor.strip()
     except Exception as e:
