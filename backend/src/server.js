@@ -7,16 +7,20 @@ const pool = require('./db/connection');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
-app.use(cors({
-  origin: [
-    'https://projeto-dashboard-versao1-frontend-wtay.vercel.app', // Frontend na Vercel
-    'https://projeto-dashboard-versao1-frontend-wtay.vercel.app/' // Com barra no final
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-}));
+// Configuração CORS mais permissiva
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  // Responder imediatamente às solicitações OPTIONS
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -76,4 +80,4 @@ const startServer = async () => {
   }
 };
 
-startServer(); 
+startServer();
