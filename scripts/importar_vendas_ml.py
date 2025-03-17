@@ -210,4 +210,4 @@ if __name__ == "__main__":
     # main()
     
     # Para executar continuamente a cada hora:
-    executar_com_intervalo(10)  # 10 minutos
+    executar_com_intervalo(10)  # 10 * 6 minutos
