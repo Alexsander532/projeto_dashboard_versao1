@@ -8,7 +8,17 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:5173',  // Ambiente de desenvolvimento local
+    'http://localhost:3000',  // Outro ambiente local comum
+    'https://projeto-dashboard-versao1-frontend-wtay.vercel.app', // Frontend na Vercel
+    'https://projeto-dashboard-versao1-frontend-wtay.vercel.app/' // Com barra no final
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
