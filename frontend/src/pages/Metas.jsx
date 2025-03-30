@@ -5,7 +5,8 @@ import {
   CircularProgress, Badge, InputAdornment, TextField,
   Container, useTheme, alpha, Button, Chip, Alert, AlertTitle,
   LinearProgress, Card, Tooltip, Accordion, AccordionSummary, AccordionDetails,
-  FormControl, InputLabel, Select, MenuItem
+  FormControl, InputLabel, Select, MenuItem, Snackbar, Dialog, DialogTitle,
+  DialogContent, DialogActions
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -35,12 +36,16 @@ import {
   SearchOff as SearchOffIcon,
   ExpandMore as ExpandMoreIcon,
   FilterList as FilterListIcon,
-  ViewModule as ViewModuleIcon
+  ViewModule as ViewModuleIcon,
+  PictureAsPdf as PictureAsPdfIcon,
+  Download as DownloadIcon,
+  Close as CloseIcon
 } from '@mui/icons-material';
 import { useTheme as useAppTheme } from '../contexts/ThemeContext';
 import { toast } from 'react-toastify';
-import { PDFDownloadLink } from '@react-pdf/renderer';
+import { PDFDownloadLink, PDFViewer } from '@react-pdf/renderer';
 import SalesReport from '../components/SalesReport';
+import RelatorioMetas, { RelatorioDownloadLink } from '../components/RelatorioMetas';
 import api from '../config/api';
 import MetasMetrics from '../components/MetasMetrics';
 import MetasTable from '../components/MetasTable';
@@ -364,6 +369,10 @@ const Metas = () => {
     margemMedia: 0
   });
   const [vendas, setVendas] = useState([]);
+  const [gerando, setGerando] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [relatorioDialogOpen, setRelatorioDialogOpen] = useState(false);
 
   // Função para formatar o mês e ano selecionados
   const formatMesAno = useCallback(() => {
@@ -472,6 +481,18 @@ const Metas = () => {
     }
   };
 
+  const handleGerarRelatorio = () => {
+    setRelatorioDialogOpen(true);
+  };
+
+  const handleCloseRelatorioDialog = () => {
+    setRelatorioDialogOpen(false);
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbarOpen(false);
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -501,8 +522,8 @@ const Metas = () => {
       >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, alignItems: 'center' }}>
           <Typography variant="h4">Metas de Vendas</Typography>
-          <Grid container spacing={2} sx={{ maxWidth: 500, justifyContent: 'flex-end' }}>
-            <Grid item xs={6}>
+          <Grid container spacing={2} sx={{ maxWidth: 700, justifyContent: 'flex-end' }}>
+            <Grid item xs={4}>
               <FormControl fullWidth size="small">
                   <InputLabel>Ano</InputLabel>
                 <Select value={selectedYear} onChange={handleYearChange}>
@@ -512,7 +533,7 @@ const Metas = () => {
                   </Select>
                 </FormControl>
             </Grid>
-            <Grid item xs={6}>
+            <Grid item xs={4}>
               <FormControl fullWidth size="small">
                   <InputLabel>Mês</InputLabel>
                 <Select value={selectedMonth} onChange={handleMonthChange}>
@@ -524,8 +545,20 @@ const Metas = () => {
                   </Select>
                 </FormControl>
             </Grid>
+            <Grid item xs={4}>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<PictureAsPdfIcon />}
+                onClick={handleGerarRelatorio}
+                fullWidth
+                sx={{ height: '40px' }}
+              >
+                Gerar Relatório
+              </Button>
+            </Grid>
           </Grid>
-          </Box>
+        </Box>
 
         <MetasMetrics stats={totalStats} />
         
@@ -536,7 +569,60 @@ const Metas = () => {
           onGoalChange={handleGoalChange}
           onMarginGoalChange={handleMarginGoalChange}
         />
-                </Box>
+        
+        <Snackbar
+          open={snackbarOpen}
+          autoHideDuration={6000}
+          onClose={handleCloseSnackbar}
+          message={snackbarMessage}
+        />
+
+        {/* Dialog para exibir e baixar o relatório */}
+        <Dialog
+          open={relatorioDialogOpen}
+          onClose={handleCloseRelatorioDialog}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+              <Typography variant="h6">
+                Relatório Mensal de Metas - {format(new Date(selectedYear, selectedMonth - 1), 'MMMM/yyyy', { locale: ptBR }).replace(/^\w/, c => c.toUpperCase())}
+              </Typography>
+              <IconButton onClick={handleCloseRelatorioDialog} size="small">
+                <CloseIcon />
+              </IconButton>
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ height: '500px', overflow: 'auto' }}>
+              <PDFViewer width="100%" height="480px">
+                <RelatorioMetas 
+                  vendas={vendas} 
+                  metas={goals} 
+                  marginMetas={marginGoals} 
+                  mesAno={formatMesAno()} 
+                />
+              </PDFViewer>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseRelatorioDialog}>Fechar</Button>
+            <Button 
+              variant="contained" 
+              color="primary" 
+              startIcon={<DownloadIcon />}
+            >
+              <RelatorioDownloadLink 
+                vendas={vendas} 
+                metas={goals} 
+                marginMetas={marginGoals} 
+                mesAno={formatMesAno()} 
+              />
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
     </Box>
   );
 };

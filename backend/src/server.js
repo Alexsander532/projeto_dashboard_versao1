@@ -35,12 +35,14 @@ const vendasRoutes = require('./routes/vendas');
 const estoqueRoutes = require('./routes/estoque');
 const metasRoutes = require('./routes/metas');
 const produtosRoutes = require('./routes/produtos');
+const relatoriosRoutes = require('./routes/relatorios');
 
 // Registrar rotas
 app.use('/api/vendas', vendasRoutes);
 app.use('/api/estoque', estoqueRoutes);
 app.use('/api/metas', metasRoutes);
 app.use('/', produtosRoutes);
+app.use('/api/relatorios', relatoriosRoutes);
 
 // Rota de teste para verificar se o servidor está rodando
 app.get('/api/status', (req, res) => {
@@ -73,6 +75,8 @@ const startServer = async () => {
       console.log('- PUT    /api/produtos/:sku');
       console.log('- DELETE /api/produtos/:sku');
       console.log('- GET    /api/status');
+      console.log('- POST   /api/relatorios/mensal');
+      console.log('- GET    /api/relatorios/download/:nomeArquivo');
     });
   } catch (error) {
     console.error('Erro ao iniciar servidor:', error);

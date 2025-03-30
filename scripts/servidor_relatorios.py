@@ -1,6 +1,8 @@
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
+from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS
 import pandas as pd
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -14,7 +16,10 @@ from babel.numbers import format_currency
 # Carrega variáveis de ambiente
 load_dotenv()
 
-# Configurações do banco de dados do Railway
+app = Flask(__name__)
+CORS(app)
+
+# Configurações do banco de dados (usando as mesmas do projeto)
 DB_CONFIG = {
     'dbname': 'railway',
     'user': 'postgres',
@@ -24,15 +29,15 @@ DB_CONFIG = {
 }
 
 def conectar_banco():
-    return psycopg2.connect(
-        host=DB_CONFIG['host'],
-        database=DB_CONFIG['dbname'],
-        user=DB_CONFIG['user'],
-        password=DB_CONFIG['password'],
-        port=DB_CONFIG['port']
-    )
+    """Estabelece conexão com o banco de dados"""
+    try:
+        return psycopg2.connect(**DB_CONFIG)
+    except Exception as e:
+        print(f"Erro ao conectar ao banco de dados: {str(e)}")
+        return None
 
 def buscar_dados_vendas(conn, mes_ano):
+    """Busca dados de vendas do mês especificado"""
     query = """
     SELECT 
         v.sku,
@@ -49,6 +54,7 @@ def buscar_dados_vendas(conn, mes_ano):
     return pd.read_sql_query(query, conn, params=[mes_ano])
 
 def buscar_metas(conn, mes_ano):
+    """Busca metas do mês especificado"""
     query = """
     SELECT m.sku, m.meta_vendas, m.meta_margem
     FROM metas_ml m
@@ -57,22 +63,11 @@ def buscar_metas(conn, mes_ano):
     return pd.read_sql_query(query, conn, params=[mes_ano])
 
 def formatar_moeda(valor):
+    """Formata valor para moeda brasileira"""
     return format_currency(valor, 'BRL', locale='pt_BR')
 
-def calcular_status_meta(vendas, meta):
-    if pd.isna(meta) or meta == 0:
-        return 'Meta não definida'
-    percentual = (vendas / meta) * 100
-    if percentual >= 100:
-        return 'Meta atingida!'
-    elif percentual >= 70:
-        return 'Meta alcançável'
-    elif percentual >= 50:
-        return 'Atenção necessária'
-    else:
-        return 'Risco alto'
-
 def gerar_relatorio_mensal(mes_ano):
+    """Gera o relatório mensal em PDF"""
     conn = conectar_banco()
     
     # Busca os dados
@@ -232,11 +227,34 @@ def gerar_relatorio_mensal(mes_ano):
     conn.close()
     return nome_arquivo
 
-if __name__ == "__main__":
-    # Se não for fornecida uma data, usa o mês atual
-    if len(sys.argv) > 1:
-        mes_ano = sys.argv[1]
-    else:
-        mes_ano = datetime.now().strftime('%Y-%m-01')
-    
-    gerar_relatorio_mensal(mes_ano)
+@app.route('/api/relatorios/mensal', methods=['POST'])
+def gerar_relatorio():
+    """Endpoint para gerar relatório mensal"""
+    try:
+        data = request.json
+        mes_ano = data.get('mes_ano')
+        
+        if not mes_ano:
+            return jsonify({'error': 'Data não fornecida'}), 400
+            
+        nome_arquivo = gerar_relatorio_mensal(mes_ano)
+        return jsonify({
+            'success': True,
+            'arquivo': nome_arquivo,
+            'mensagem': f'Relatório gerado com sucesso: {nome_arquivo}'
+        })
+    except Exception as e:
+        print(f"Erro ao gerar relatório: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/relatorios/download/<nome_arquivo>', methods=['GET'])
+def download_relatorio(nome_arquivo):
+    """Endpoint para download do relatório gerado"""
+    try:
+        return send_file(nome_arquivo, as_attachment=True)
+    except Exception as e:
+        print(f"Erro ao fazer download do relatório: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)
