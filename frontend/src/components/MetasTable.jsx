@@ -196,6 +196,18 @@ const MetasTable = ({ vendas, goals, marginGoals, onGoalChange, onMarginGoalChan
 
   console.log('Vendas recebidas na tabela:', vendas);
 
+  // Ordenar vendas por progresso (do maior para o menor)
+  const vendasOrdenadas = [...vendas].map(venda => {
+    const metaVendas = Number(goals[venda.sku]) || 0;
+    const vendasRealizadas = Number(venda.valor_vendido) || 0;
+    const progressoVendas = calcularProgressoVendas(vendasRealizadas, metaVendas);
+    
+    return {
+      ...venda,
+      progresso: progressoVendas
+    };
+  }).sort((a, b) => b.progresso - a.progresso);
+
   return (
     <TableContainer component={Paper} sx={{ mt: 3, overflow: 'auto' }}>
       <Table size="small">
@@ -258,7 +270,7 @@ const MetasTable = ({ vendas, goals, marginGoals, onGoalChange, onMarginGoalChan
           </TableRow>
         </TableHead>
         <TableBody>
-          {vendas.map((venda, index) => {
+          {vendasOrdenadas.map((venda, index) => {
             const metaVendas = Number(goals[venda.sku]) || 0;
             const vendasRealizadas = Number(venda.valor_vendido) || 0;
             const progressoVendas = calcularProgressoVendas(vendasRealizadas, metaVendas);
