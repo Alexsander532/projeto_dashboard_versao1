@@ -236,6 +236,7 @@ router.get('/vendas/por-sku', async (req, res) => {
           e.descricao as produto,
           SUM(v.valor_vendido) as valor_vendido,
           SUM(v.unidades) as unidades,
+          SUM(v.lucro) as lucro,
           CASE 
             WHEN SUM(v.valor_vendido) > 0 
             THEN (SUM(v.lucro) / SUM(v.valor_vendido)) * 100 
@@ -249,6 +250,8 @@ router.get('/vendas/por-sku', async (req, res) => {
       `;
       
       const result = await pool.query(query, [ano, mes]);
+      
+      console.log('Dados retornados pela consulta SQL (por-sku):', JSON.stringify(result.rows.slice(0, 3), null, 2));
       
       console.log(`Encontradas ${result.rows.length} SKUs com vendas`);
       res.json(result.rows);

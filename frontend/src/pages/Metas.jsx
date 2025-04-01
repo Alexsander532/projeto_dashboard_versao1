@@ -320,13 +320,20 @@ const fetchVendas = async (mesAno) => {
       return [];
     }
     
+    // Log para verificar os dados recebidos da API
+    console.log('Dados recebidos da API (primeiros 3 itens):', JSON.stringify(response.data.slice(0, 3), null, 2));
+    
     // Processar os dados exatamente como na página do ML
     const vendasProcessadas = response.data.map(venda => ({
       ...venda,
       valor_vendido: Number(venda.valor_vendido || 0),
       unidades: Number(venda.unidades || 0),
-      margem_lucro: Number(venda.margem_lucro || 0)
+      margem_lucro: Number(venda.margem_lucro || 0),
+      lucro: Number(venda.lucro || 0)
     }));
+    
+    // Log para verificar os dados processados
+    console.log('Dados processados (primeiros 3 itens):', JSON.stringify(vendasProcessadas.slice(0, 3), null, 2));
     
     console.log(`Recebidas ${vendasProcessadas.length} SKUs com vendas`);
     return vendasProcessadas;

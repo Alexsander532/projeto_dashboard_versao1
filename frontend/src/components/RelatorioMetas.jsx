@@ -104,6 +104,9 @@ const RelatorioMetas = ({ vendas, metas, marginMetas, mesAno }) => {
     ...vendas.map(v => v.sku)
   ])];
 
+  // Log para verificar os dados de vendas recebidos
+  console.log('Dados de vendas recebidos no RelatorioMetas (primeiros 3 itens):', JSON.stringify(vendas.slice(0, 3), null, 2));
+
   // Processar os dados de vendas para obter informações por SKU
   const dadosVendasPorSku = vendas.reduce((acc, venda) => {
     const sku = venda.sku;
@@ -124,8 +127,11 @@ const RelatorioMetas = ({ vendas, metas, marginMetas, mesAno }) => {
     const unidades = typeof venda.unidades === 'number' ? venda.unidades : 
                     parseFloat(venda.unidades || 0);
     
+    // Usar o campo lucro diretamente das vendas do Mercado Livre
     const lucro = typeof venda.lucro === 'number' ? venda.lucro : 
                 parseFloat(venda.lucro || 0);
+    
+    console.log(`Processando SKU ${sku}: valorVendido=${valorVendido}, unidades=${unidades}, lucro=${lucro}`);
     
     acc[sku].totalVendido += valorVendido;
     acc[sku].totalUnidades += unidades;
@@ -135,21 +141,29 @@ const RelatorioMetas = ({ vendas, metas, marginMetas, mesAno }) => {
     return acc;
   }, {});
 
+  // Log para verificar os dados processados por SKU
+  console.log('Dados processados por SKU (primeiros 3):', 
+    JSON.stringify(Object.entries(dadosVendasPorSku).slice(0, 3).map(([sku, dados]) => ({ 
+      sku, 
+      totalVendido: dados.totalVendido,
+      totalUnidades: dados.totalUnidades,
+      totalLucro: dados.totalLucro
+    })), null, 2)
+  );
+
   // Preparar dados para o resumo de vendas
   const resumoVendas = todosSkus.map(sku => {
     const dadosVenda = dadosVendasPorSku[sku] || { totalVendido: 0, totalUnidades: 0, totalLucro: 0 };
     
-    // Usar a margem do objeto marginMetas se disponível
-    const margemDefinida = marginMetas && marginMetas[sku] !== undefined ? 
-      parseFloat(marginMetas[sku]) : 
-      (dadosVenda.totalVendido > 0 ? (dadosVenda.totalLucro / dadosVenda.totalVendido) * 100 : 0);
+    // Obter a margem atual diretamente dos dados de vendas
+    const margemAtual = vendas.find(v => v.sku === sku)?.margem_lucro || 0;
     
     return {
       sku,
       totalVendido: dadosVenda.totalVendido,
       totalUnidades: dadosVenda.totalUnidades,
       totalLucro: dadosVenda.totalLucro,
-      margemMedia: margemDefinida
+      margemMedia: parseFloat(margemAtual)
     };
   }).sort((a, b) => b.totalLucro - a.totalLucro); // Ordenar por lucro total decrescente
 
@@ -160,16 +174,15 @@ const RelatorioMetas = ({ vendas, metas, marginMetas, mesAno }) => {
     const progresso = metaVendas > 0 ? (dadosVenda.totalVendido / metaVendas) * 100 : 0;
     const status = metaVendas > 0 ? determinarStatus(progresso) : { text: 'Meta não definida', style: styles.statusUndefined };
     
-    // Usar a margem do objeto marginMetas se disponível
-    const margemDefinida = marginMetas && marginMetas[sku] !== undefined ? 
-      parseFloat(marginMetas[sku]) : 0;
+    // Obter a margem atual diretamente dos dados de vendas
+    const margemAtual = vendas.find(v => v.sku === sku)?.margem_lucro || 0;
 
     return {
       sku,
       totalVendido: dadosVenda.totalVendido,
       totalUnidades: dadosVenda.totalUnidades,
       totalLucro: dadosVenda.totalLucro,
-      margemMedia: margemDefinida,
+      margemMedia: parseFloat(margemAtual),
       metaVendas,
       progresso,
       status
@@ -201,19 +214,16 @@ const RelatorioMetas = ({ vendas, metas, marginMetas, mesAno }) => {
         <View style={styles.table}>
           {/* Cabeçalho da tabela */}
           <View style={styles.tableRow}>
-            <View style={[styles.tableColHeader, { width: '20%' }]}>
+            <View style={[styles.tableColHeader, { width: '25%' }]}>
               <Text style={styles.tableCell}>SKU</Text>
             </View>
-            <View style={[styles.tableColHeader, { width: '20%' }]}>
+            <View style={[styles.tableColHeader, { width: '30%' }]}>
               <Text style={styles.tableCell}>Total de Vendas</Text>
             </View>
-            <View style={[styles.tableColHeader, { width: '15%' }]}>
+            <View style={[styles.tableColHeader, { width: '20%' }]}>
               <Text style={styles.tableCell}>Unidades</Text>
             </View>
             <View style={[styles.tableColHeader, { width: '25%' }]}>
-              <Text style={styles.tableCell}>Lucro Total</Text>
-            </View>
-            <View style={[styles.tableColHeader, { width: '20%' }]}>
               <Text style={styles.tableCell}>Margem Média</Text>
             </View>
           </View>
@@ -221,19 +231,16 @@ const RelatorioMetas = ({ vendas, metas, marginMetas, mesAno }) => {
           {/* Linhas da tabela */}
           {resumoVendas.map((item, index) => (
             <View key={index} style={styles.tableRow}>
-              <View style={[styles.tableCol, { width: '20%' }]}>
+              <View style={[styles.tableCol, { width: '25%' }]}>
                 <Text style={styles.tableCell}>{item.sku}</Text>
               </View>
-              <View style={[styles.tableCol, { width: '20%' }]}>
+              <View style={[styles.tableCol, { width: '30%' }]}>
                 <Text style={styles.tableCell}>{formatarMoeda(item.totalVendido)}</Text>
               </View>
-              <View style={[styles.tableCol, { width: '15%' }]}>
+              <View style={[styles.tableCol, { width: '20%' }]}>
                 <Text style={styles.tableCell}>{item.totalUnidades}</Text>
               </View>
               <View style={[styles.tableCol, { width: '25%' }]}>
-                <Text style={styles.tableCell}>{formatarMoeda(item.totalLucro)}</Text>
-              </View>
-              <View style={[styles.tableCol, { width: '20%' }]}>
                 <Text style={styles.tableCell}>{item.margemMedia.toFixed(1)}%</Text>
               </View>
             </View>
