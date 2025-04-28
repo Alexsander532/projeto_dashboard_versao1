@@ -97,7 +97,7 @@ const determinarStatus = (progresso) => {
 };
 
 // Componente do relatório
-const RelatorioMetas = ({ vendas, metas, marginMetas, mesAno }) => {
+const RelatorioMetas = ({ vendas, metas, marginMetas, mesAno, mesDisplay }) => {
   // Obter todos os SKUs únicos de vendas e metas
   const todosSkus = [...new Set([
     ...Object.keys(metas),
@@ -189,25 +189,16 @@ const RelatorioMetas = ({ vendas, metas, marginMetas, mesAno }) => {
     };
   }).sort((a, b) => b.progresso - a.progresso); // Ordenar por progresso decrescente
 
-  // Formatar a data para o título - usar a data atual, não o mês passado
-  const dataAtual = new Date(mesAno);
-  const mesFormatado = format(dataAtual, 'MMMM/yyyy', { locale: ptBR });
-  const mesCapitalizado = mesFormatado.charAt(0).toUpperCase() + mesFormatado.slice(1);
-
-  // Verificar se temos dados para depuração
-  console.log('Dados para relatório:', {
-    todosSkus,
-    dadosVendasPorSku,
-    resumoVendas,
-    dadosMetas,
-    marginMetas
+  console.log('Data formatada para o título:', {
+    mesAno,
+    mesDisplay
   });
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         {/* Título do relatório */}
-        <Text style={styles.title}>Relatório Mensal de Metas - {mesCapitalizado}</Text>
+        <Text style={styles.title}>Relatório Mensal de Metas - {mesDisplay}</Text>
         
         {/* Resumo de Vendas por SKU */}
         <Text style={styles.subtitle}>Resumo de Vendas por SKU</Text>
@@ -302,13 +293,13 @@ const RelatorioMetas = ({ vendas, metas, marginMetas, mesAno }) => {
 };
 
 // Componente para download do relatório
-export const RelatorioDownloadLink = ({ vendas, metas, marginMetas, mesAno }) => {
+export const RelatorioDownloadLink = ({ vendas, metas, marginMetas, mesAno, mesDisplay }) => {
   const dataFormatada = format(new Date(mesAno), 'yyyy-MM');
   const fileName = `relatorio_mensal_metas_${dataFormatada}.pdf`;
   
   return (
     <PDFDownloadLink 
-      document={<RelatorioMetas vendas={vendas} metas={metas} marginMetas={marginMetas} mesAno={mesAno} />} 
+      document={<RelatorioMetas vendas={vendas} metas={metas} marginMetas={marginMetas} mesAno={mesAno} mesDisplay={mesDisplay} />} 
       fileName={fileName}
       style={{
         textDecoration: 'none',

@@ -15,6 +15,14 @@ router.get('/', async (req, res) => {
         WHERE data >= CURRENT_DATE - INTERVAL '30 days'
         GROUP BY sku
       ),
+      vendas_ultimos_15_dias AS (
+        SELECT 
+          sku,
+          SUM(unidades) as vendas_quinzenais
+        FROM vendas_ml
+        WHERE data >= CURRENT_DATE - INTERVAL '15 days'
+        GROUP BY sku
+      ),
       ultima_venda AS (
         SELECT 
           sku,
@@ -32,6 +40,7 @@ router.get('/', async (req, res) => {
         COALESCE(e.valor_liquido, 0) as valor_liquido,
         COALESCE(v.media_diaria, 0) as media_vendas,
         COALESCE(v.total_vendas, 0) as total_vendas,
+        COALESCE(v15.vendas_quinzenais, 0) as vendas_quinzenais,
         COALESCE(uv.ultima_data_venda, NULL) as ultima_venda,
         e.status,
         e.created_at,
@@ -44,6 +53,7 @@ router.get('/', async (req, res) => {
       FROM estoque e
       LEFT JOIN vendas_ultimos_30_dias v ON e.sku = v.sku
       LEFT JOIN ultima_venda uv ON e.sku = uv.sku
+      LEFT JOIN vendas_ultimos_15_dias v15 ON e.sku = v15.sku
       ORDER BY e.id ASC
     `;
     

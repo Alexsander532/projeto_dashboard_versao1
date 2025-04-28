@@ -29,7 +29,8 @@ import {
   DialogContent,
   DialogActions,
   alpha,
-  ClickAwayListener
+  ClickAwayListener,
+  TablePagination
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -50,6 +51,8 @@ export default function EstoqueTable({ onMetricasUpdate }) {
   const [loading, setLoading] = useState(true);
   const [produtos, setProdutos] = useState([]);
   const [editingProduto, setEditingProduto] = useState(null);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const calcularMediaVendas = (vendasDiarias) => {
     if (!vendasDiarias || !Array.isArray(vendasDiarias)) return 0;
@@ -415,44 +418,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
     return Math.ceil(media * 70); // Estoque necessário para 70 dias
   };
 
-  const handleQuantityChange = async (sku, delta) => {
-    try {
-      // Atualiza o estado local imediatamente
-      setProdutos(produtos.map(p => {
-        if (p.sku === sku) {
-          return {
-            ...p,
-            estoque: p.estoque + delta
-          };
-        }
-        return p;
-      }));
-
-      // Faz a requisição para o backend
-      await atualizarQuantidade(sku, delta);
-      
-      // Atualiza as métricas
-      const metricas = {
-        totalEstoque: produtos.reduce((acc, p) => acc + (p.sku === sku ? p.estoque + delta : p.estoque), 0),
-        valorTotal: produtos.reduce((acc, p) => acc + ((p.sku === sku ? p.estoque + delta : p.estoque) * p.valorLiquidoMedio), 0),
-        estoqueCritico: produtos.filter(p => p.estoque < p.minimo).length
-      };
-      onMetricasUpdate(metricas);
-
-    } catch (error) {
-      console.error('Erro ao atualizar quantidade:', error);
-      // Em caso de erro, reverte a alteração local
-      setProdutos(produtos.map(p => {
-        if (p.sku === sku) {
-          return {
-            ...p,
-            estoque: p.estoque - delta
-          };
-        }
-        return p;
-      }));
-    }
-  };
+  // Função de atualização de quantidade removida
 
   const handleCellEdit = async (sku, field, value) => {
     try {
@@ -577,8 +543,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
   }
 
   const filteredProdutos = produtos.filter(produto => {
-    const matchesSearch = produto.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        produto.produto.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = produto.sku.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = filters.status === 'todos' || produto.status === filters.status;
     
@@ -617,53 +582,15 @@ export default function EstoqueTable({ onMetricasUpdate }) {
   };
 
   // Componente da barra de progresso
-  const ProgressBar = ({ produto, onQuantityChange }) => {
+  const ProgressBar = ({ produto }) => {
     if (!produto) return null;
-    const [editingQuantity, setEditingQuantity] = useState(false);
-    const [quantidade, setQuantidade] = useState(produto.estoque);
+    const [quantidade] = useState(produto.estoque);
     const theme = useTheme();
 
     // Atualiza o estado local quando o produto muda
     useEffect(() => {
-      setQuantidade(produto.estoque);
+      // Apenas referência ao estoque atual, sem possibilidade de edição
     }, [produto.estoque]);
-
-    // Função para incrementar estoque
-    const handleIncrement = () => {
-      const newValue = quantidade + 1;
-      setQuantidade(newValue);
-      onQuantityChange(produto.sku, 1);
-    };
-
-    // Função para decrementar estoque
-    const handleDecrement = () => {
-      if (quantidade > 0) {
-        const newValue = quantidade - 1;
-        setQuantidade(newValue);
-        onQuantityChange(produto.sku, -1);
-      }
-    };
-
-    // Função para edição manual
-    const handleManualEdit = (value) => {
-      const newValue = parseInt(value);
-      if (!isNaN(newValue) && newValue >= 0) {
-        const delta = newValue - quantidade;
-        setQuantidade(newValue);
-        onQuantityChange(produto.sku, delta);
-        setEditingQuantity(false);
-      }
-    };
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Enter') {
-        handleManualEdit(e.target.value);
-      }
-      if (e.key === 'Escape') {
-        setQuantidade(produto.estoque);
-        setEditingQuantity(false);
-      }
-    };
 
   return (
     <Box sx={{ width: '100%' }}>
@@ -800,33 +727,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
       setQuantidade(produto.estoque);
     }, [produto.estoque]);
 
-    const handleQuantityChange = async (delta) => {
-      try {
-        const novaQuantidade = quantidade + delta;
-        if (novaQuantidade >= 0) {
-          await onQuantityChange(produto.sku, delta);
-          setQuantidade(novaQuantidade);
-        }
-      } catch (error) {
-        console.error('Erro ao atualizar quantidade:', error);
-      }
-    };
-
-    const handleManualEdit = async (value) => {
-      const newValue = parseInt(value);
-      if (!isNaN(newValue) && newValue >= 0) {
-        const delta = newValue - quantidade;
-        try {
-          await onQuantityChange(produto.sku, delta);
-          setQuantidade(newValue);
-        } catch (error) {
-          console.error('Erro ao atualizar quantidade:', error);
-        }
-      }
-      setEditingQuantity(false);
-    };
-                  
-                  return (
+    return (
       <TableRow
         hover
         sx={{
@@ -836,7 +737,6 @@ export default function EstoqueTable({ onMetricasUpdate }) {
         }}
       >
         <TableCell align="center">{produto.sku}</TableCell>
-        <TableCell align="center">{produto.produto}</TableCell>
                       <TableCell align="center">
           <Box sx={{ 
             display: 'flex', 
@@ -847,81 +747,24 @@ export default function EstoqueTable({ onMetricasUpdate }) {
           }}>
             {/* Controles de Estoque */}
             <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'space-between',
-              width: '100%',
-              maxWidth: 200
-            }}>
-                            <IconButton
-                onClick={() => handleQuantityChange(-1)}
-                disabled={quantidade <= 0}
-                              size="small"
-                sx={{
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  '&:hover': { bgcolor: 'action.hover' }
-                }}
-                            >
-                              <RemoveIcon fontSize="small" />
-                            </IconButton>
-
-              {editingQuantity ? (
-                <TextField
-                  value={quantidade}
-                  onChange={(e) => setQuantidade(parseInt(e.target.value) || 0)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleManualEdit(e.target.value);
-                    if (e.key === 'Escape') {
-                      setQuantidade(produto.estoque);
-                      setEditingQuantity(false);
-                    }
-                  }}
-                  onBlur={(e) => handleManualEdit(e.target.value)}
-                  size="small"
-                  autoFocus
-                  sx={{ 
-                    width: '80px',
-                    '& input': { 
-                      textAlign: 'center',
-                      fontSize: '1rem',
-                      fontWeight: 'medium'
-                    }
-                  }}
-                  inputProps={{ min: 0 }}
-                />
-              ) : (
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            width: '100%',
+            maxWidth: 200
+          }}>
                 <Typography
-                  onClick={() => setEditingQuantity(true)}
                   sx={{
                     width: '80px',
                     textAlign: 'center',
-                    cursor: 'pointer',
                     py: 1,
                     fontSize: '1rem',
-                    fontWeight: 'medium',
-                    '&:hover': {
-                      bgcolor: 'action.hover',
-                      borderRadius: 1
-                    }
+                    fontWeight: 'medium'
                   }}
                 >
                   {quantidade}
-                            </Typography>
-              )}
-
-                            <IconButton
-                onClick={() => handleQuantityChange(1)}
-                              size="small"
-                sx={{
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  '&:hover': { bgcolor: 'action.hover' }
-                }}
-                            >
-                              <AddIcon fontSize="small" />
-                            </IconButton>
-                          </Box>
+                </Typography>
+          </Box>
 
             {/* Limites de Estoque */}
             <Typography variant="caption" color="text.secondary">
@@ -1046,7 +889,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
                       </TableCell>
                       <TableCell align="center">
           <Typography>
-            {produto.mediaVendas ? produto.mediaVendas.toFixed(1) : '0'}/dia
+            {produto.vendasQuinzenais ? produto.vendasQuinzenais : '0'} un.
                           </Typography>
                       </TableCell>
                       <TableCell align="center">
@@ -1097,12 +940,11 @@ export default function EstoqueTable({ onMetricasUpdate }) {
 
   const columns = [
     { id: 'sku', label: 'SKU', minWidth: 100 },
-    { id: 'produto', label: 'Produto', minWidth: 200 },
     { id: 'estoque', label: 'Estoque', minWidth: 150 },
     { id: 'precoCompra', label: 'Preço Compra', minWidth: 120 },
     { id: 'valorLiquidoTotal', label: 'Valor Líquido Total', minWidth: 120 },
     { id: 'status', label: 'Status', minWidth: 120 },
-    { id: 'mediaVendas', label: 'Média Vendas', minWidth: 120 },
+    { id: 'vendasQuinzenais', label: 'Vendas Quinzenais', minWidth: 120 },
     { id: 'previsaoDias', label: 'Previsão', minWidth: 100 },
     { id: 'ultimaVenda', label: 'Última Venda', minWidth: 120 },
     { id: 'acoes', label: 'Ações', minWidth: 80 }
@@ -1192,17 +1034,35 @@ export default function EstoqueTable({ onMetricasUpdate }) {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredProdutos.map((produto) => (
-                  <CustomTableRow 
-                    key={produto.sku} 
-                    produto={produto}
-                    onQuantityChange={handleQuantityChange}
-                    onEdit={handleEdit}
-                  />
-                ))}
+                {filteredProdutos
+                  .sort((a, b) => b.estoque - a.estoque) // Ordena por estoque, do maior para o menor
+                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage) // Aplica paginação
+                  .map((produto) => (
+                    <CustomTableRow 
+                      key={produto.sku} 
+                      produto={produto}
+                      onEdit={handleEdit}
+                    />
+                  ))}
               </TableBody>
             </Table>
           </TableContainer>
+          
+          {/* Paginação */}
+          <TablePagination
+            rowsPerPageOptions={[10, 15, 20]}
+            component="div"
+            count={filteredProdutos.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={(event, newPage) => setPage(newPage)}
+            onRowsPerPageChange={(event) => {
+              setRowsPerPage(parseInt(event.target.value, 10));
+              setPage(0);
+            }}
+            labelRowsPerPage="Linhas por página:"
+            labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+          />
 
           <EditProdutoDialog
             open={!!editingProduto}

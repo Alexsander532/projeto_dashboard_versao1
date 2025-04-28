@@ -386,6 +386,13 @@ const Metas = () => {
     return `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
   }, [selectedYear, selectedMonth]);
 
+  // Função para formatar o mês e ano para exibição
+  const formatMesAnoDisplay = useCallback(() => {
+    const data = new Date(selectedYear, selectedMonth - 1, 1);
+    const mes = format(data, 'MMMM', { locale: ptBR });
+    return `${mes.charAt(0).toUpperCase() + mes.slice(1)} ${selectedYear}`;
+  }, [selectedYear, selectedMonth]);
+
   // Função para carregar todos os dados necessários
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -594,7 +601,7 @@ const Metas = () => {
           <DialogTitle>
             <Box display="flex" justifyContent="space-between" alignItems="center">
               <Typography variant="h6">
-                Relatório Mensal de Metas - {format(new Date(selectedYear, selectedMonth - 1), 'MMMM/yyyy', { locale: ptBR }).replace(/^\w/, c => c.toUpperCase())}
+                Relatório Mensal de Metas - {formatMesAnoDisplay()}
               </Typography>
               <IconButton onClick={handleCloseRelatorioDialog} size="small">
                 <CloseIcon />
@@ -608,7 +615,8 @@ const Metas = () => {
                   vendas={vendas} 
                   metas={goals} 
                   marginMetas={marginGoals} 
-                  mesAno={formatMesAno()} 
+                  mesAno={formatMesAno()}
+                  mesDisplay={formatMesAnoDisplay()} 
                 />
               </PDFViewer>
             </Box>
@@ -624,7 +632,8 @@ const Metas = () => {
                 vendas={vendas} 
                 metas={goals} 
                 marginMetas={marginGoals} 
-                mesAno={formatMesAno()} 
+                mesAno={formatMesAno()}
+                mesDisplay={formatMesAnoDisplay()} 
               />
             </Button>
           </DialogActions>

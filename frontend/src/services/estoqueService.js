@@ -21,6 +21,7 @@ export const fetchEstoque = async () => {
             valorLiquidoMedio: Number(item.valor_liquido) || 0,
             valorLiquidoTotal: Number(item.valor_liquido * item.estoque) || 0,
             mediaVendas: Number(item.media_vendas) || 0,
+            vendasQuinzenais: Number(item.vendas_quinzenais) || 0,
             previsaoDias: item.previsao_dias ? Number(item.previsao_dias) : null,
             totalVendas: Number(item.total_vendas) || 0,
             ultimaVenda: item.ultima_venda,
