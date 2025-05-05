@@ -39,6 +39,8 @@ import {
   Check as CheckIcon,
   Close as CloseIcon,
   FilterList as FilterListIcon,
+  VisibilityOff as VisibilityOffIcon,
+  Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import { fetchEstoque, atualizarEstoque, atualizarQuantidade } from '../services/estoqueService';
 import EditProdutoDialog from './EditProdutoDialog';
@@ -53,6 +55,21 @@ export default function EstoqueTable({ onMetricasUpdate }) {
   const [editingProduto, setEditingProduto] = useState(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [hiddenSkus, setHiddenSkus] = useState([]);
+  const [orderBy, setOrderBy] = useState('estoque');
+  const [order, setOrder] = useState('desc');
+  const [filters, setFilters] = useState({
+    status: 'todos',
+    previsao: 'todos',
+    mediaVendas: 'todos',
+    showFilters: false,
+  });
+  const [metricas, setMetricas] = useState({
+    totalEstoque: 0,
+    valorTotal: 0,
+    estoqueCritico: 0,
+    giroMedio: 0
+  });
 
   const calcularMediaVendas = (vendasDiarias) => {
     if (!vendasDiarias || !Array.isArray(vendasDiarias)) return 0;
@@ -127,88 +144,6 @@ export default function EstoqueTable({ onMetricasUpdate }) {
 
     carregarDados();
   }, []);
-
-  const [orderBy, setOrderBy] = useState('estoque');
-  const [order, setOrder] = useState('desc');
-  const [filters, setFilters] = useState({
-    status: 'todos',
-    previsao: 'todos',
-    mediaVendas: 'todos',
-    showFilters: false,
-  });
-  const [metricas, setMetricas] = useState({
-    totalEstoque: 0,
-    valorTotal: 0,
-    estoqueCritico: 0,
-    giroMedio: 0
-  });
-
-  // Função para calcular métricas
-  const calcularMetricas = (produtosArray) => {
-    const novasMetricas = produtosArray.reduce((acc, produto) => {
-      // Total em estoque
-      acc.totalEstoque += produto.estoque;
-      
-      // Valor total em estoque
-      acc.valorTotal += produto.estoque * produto.valorLiquidoMedio;
-      
-      // Estoque crítico (produtos em reposição)
-      const mediaVendas = calcularMediaVendas(produto.vendasDiarias);
-      const status = calcularStatus(produto.estoque, produto.minimo);
-      if (status === 'Em reposição') {
-        acc.estoqueCritico += 1;
-      }
-      
-      // Giro médio (média das médias de vendas)
-      acc.giroMedio += mediaVendas;
-      
-      return acc;
-    }, {
-      totalEstoque: 0,
-      valorTotal: 0,
-      estoqueCritico: 0,
-      giroMedio: 0
-    });
-
-    // Calcula a média do giro
-    novasMetricas.giroMedio = +(novasMetricas.giroMedio / produtosArray.length).toFixed(1);
-
-    setMetricas(novasMetricas);
-  };
-
-  // Atualiza métricas quando produtos mudam
-  useEffect(() => {
-    const novasMetricas = produtos.reduce((acc, produto) => {
-      // Total em estoque
-      acc.totalEstoque += produto.estoque;
-      
-      // Valor total em estoque
-      acc.valorTotal += produto.estoque * produto.valorLiquidoMedio;
-      
-      // Estoque crítico (produtos em reposição)
-      const mediaVendas = calcularMediaVendas(produto.vendasDiarias);
-      const status = calcularStatus(produto.estoque, produto.minimo);
-      if (status === 'Em reposição') {
-        acc.estoqueCritico += 1;
-      }
-      
-      // Giro médio (média das médias de vendas)
-      acc.giroMedio += mediaVendas;
-      
-      return acc;
-    }, {
-      totalEstoque: 0,
-      valorTotal: 0,
-      estoqueCritico: 0,
-      giroMedio: 0
-    });
-
-    // Calcula a média do giro
-    novasMetricas.giroMedio = +(novasMetricas.giroMedio / produtos.length).toFixed(1);
-
-    // Envia as métricas atualizadas para o componente pai
-    onMetricasUpdate(novasMetricas);
-  }, [produtos, onMetricasUpdate]);
 
   const handleRequestSort = (property) => {
     const isAsc = orderBy === property && order === 'asc';
@@ -533,395 +468,78 @@ export default function EstoqueTable({ onMetricasUpdate }) {
           }
         }}
       >
-        {type === 'number' && typeof value === 'number' ? 
-          field.includes('preco') || field.includes('valor') ? 
-            `R$ ${value.toFixed(2)}` : 
-            value.toLocaleString('pt-BR') : 
-          value}
+        {value}
       </Typography>
     );
   }
 
-  const filteredProdutos = produtos.filter(produto => {
-    const matchesSearch = produto.sku.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = filters.status === 'todos' || produto.status === filters.status;
-    
-    const mediaVendas = calcularMediaVendas(produto.vendasDiarias);
-    const matchesMediaVendas = filters.mediaVendas === 'todos' ||
-      (filters.mediaVendas === 'baixa' && mediaVendas <= 3) ||
-      (filters.mediaVendas === 'media' && mediaVendas > 3 && mediaVendas <= 7) ||
-      (filters.mediaVendas === 'alta' && mediaVendas > 7);
+  // Filtra e ordena os produtos para exibição
+  const filteredProdutos = produtos
+    .filter(produto => {
+      // Filtro de busca
+      const matchesSearch = produto.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (produto.produto && produto.produto.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      // Filtro de status
+      const matchesStatus = filters.status === 'todos' || 
+                          produto.status.toLowerCase() === filters.status.toLowerCase();
+      
+      // Filtro de previsão
+      let matchesPrevisao = true;
+      if (filters.previsao === 'critico') {
+        matchesPrevisao = produto.previsaoDias <= 15;
+      } else if (filters.previsao === 'baixo') {
+        matchesPrevisao = produto.previsaoDias > 15 && produto.previsaoDias <= 30;
+      } else if (filters.previsao === 'bom') {
+        matchesPrevisao = produto.previsaoDias > 30;
+      }
+      
+      // Filtro de média de vendas
+      let matchesMedia = true;
+      if (filters.mediaVendas === 'alta') {
+        matchesMedia = produto.mediaVendas >= 1;
+      } else if (filters.mediaVendas === 'baixa') {
+        matchesMedia = produto.mediaVendas < 1 && produto.mediaVendas > 0;
+      } else if (filters.mediaVendas === 'zero') {
+        matchesMedia = produto.mediaVendas === 0;
+      }
+      
+      return matchesSearch && matchesStatus && matchesPrevisao && matchesMedia;
+    })
+    .sort((a, b) => {
+      // Primeiro ordena por visibilidade (itens escondidos vão para o final)
+      const aHidden = hiddenSkus.includes(a.sku);
+      const bHidden = hiddenSkus.includes(b.sku);
+      
+      if (aHidden && !bHidden) return 1;
+      if (!aHidden && bHidden) return -1;
+      
+      // Se ambos estão escondidos ou ambos estão visíveis, usa a ordenação normal
+      if (order === 'asc') {
+        return a[orderBy] < b[orderBy] ? -1 : 1;
+      } else {
+        return a[orderBy] > b[orderBy] ? -1 : 1;
+      }
+    });
 
-    const previsaoDias = produto.estoque / mediaVendas;
-    const matchesPrevisao = filters.previsao === 'todos' ||
-      (filters.previsao === 'critico' && previsaoDias < 7) ||
-      (filters.previsao === 'alerta' && previsaoDias >= 7 && previsaoDias < 15) ||
-      (filters.previsao === 'adequado' && previsaoDias >= 15 && previsaoDias < 30) ||
-      (filters.previsao === 'excesso' && previsaoDias >= 30);
-
-    return matchesSearch && matchesStatus && matchesMediaVendas && matchesPrevisao;
-  });
-
-  const calcularProgressoEstoque = (estoque, minimo) => {
-    if (minimo === 0) return 0;
-    return Math.min((estoque / minimo) * 100, 100);
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
   };
 
-  const formatarValor = (valor) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(valor || 0);
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
   };
-
-  const getCorProgresso = (progresso) => {
-    if (progresso <= 30) return theme.palette.error.main;
-    if (progresso <= 70) return theme.palette.warning.main;
-    return theme.palette.success.main;
-  };
-
-  // Componente da barra de progresso
-  const ProgressBar = ({ produto }) => {
-    if (!produto) return null;
-    const [quantidade] = useState(produto.estoque);
-    const theme = useTheme();
-
-    // Atualiza o estado local quando o produto muda
-    useEffect(() => {
-      // Apenas referência ao estoque atual, sem possibilidade de edição
-    }, [produto.estoque]);
-
-  return (
-    <Box sx={{ width: '100%' }}>
-        {/* Controles de Estoque */}
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          gap: 1,
-          mb: 2
-        }}>
-          {/* Botão de Diminuir */}
-          <IconButton
-            onClick={handleDecrement}
-            disabled={quantidade <= 0}
-            sx={{
-              width: 32,
-              height: 32,
-              border: `1px solid ${theme.palette.divider}`,
-              '&:hover': {
-                bgcolor: theme.palette.action.hover,
-              },
-              '&:disabled': {
-                borderColor: theme.palette.action.disabled,
-              }
-            }}
-          >
-            <RemoveIcon fontSize="small" />
-          </IconButton>
-
-          {/* Campo de Quantidade */}
-          <Box sx={{ position: 'relative', minWidth: 60 }}>
-            {editingQuantity ? (
-                <TextField
-                autoFocus
-                type="number"
-                value={quantidade}
-                onChange={(e) => setQuantidade(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onBlur={(e) => handleManualEdit(e.target.value)}
-                  size="small"
-                  sx={{
-                  width: '80px',
-                  '& input': {
-                    textAlign: 'center',
-                    padding: '4px',
-                    fontSize: '1rem',
-                    fontWeight: 'medium',
-                  }
-                }}
-                InputProps={{
-                  inputProps: { min: 0 }
-                }}
-              />
-            ) : (
-              <Typography
-                onClick={() => setEditingQuantity(true)}
-                sx={{
-                  cursor: 'pointer',
-                  fontSize: '1rem',
-                  fontWeight: 'medium',
-                  textAlign: 'center',
-                  minWidth: '60px',
-                  padding: '4px 8px',
-                  border: `1px solid transparent`,
-                  borderRadius: 1,
-                  '&:hover': {
-                    bgcolor: theme.palette.action.hover,
-                    border: `1px solid ${theme.palette.primary.main}`,
-                  }
-                }}
-              >
-                {quantidade}
-              </Typography>
-            )}
-          </Box>
-
-          {/* Botão de Aumentar */}
-          <IconButton
-            onClick={handleIncrement}
-            sx={{
-              width: 32,
-              height: 32,
-              border: `1px solid ${theme.palette.divider}`,
-                '&:hover': {
-                bgcolor: theme.palette.action.hover,
-              }
-            }}
-          >
-            <AddIcon fontSize="small" />
-          </IconButton>
-
-          {/* Informação Min/Max */}
-          <Typography 
-            variant="caption" 
-            color="text.secondary"
-            sx={{ ml: 2 }}
-          >
-            Min: {produto.minimo} | Max: {Math.ceil(produto.minimo * 1.5)}
-          </Typography>
-        </Box>
-
-        {/* Barra de Progresso */}
-        <Box sx={{ width: '100%', maxWidth: 200 }}>
-          <LinearProgress
-            variant="determinate"
-            value={Math.min((quantidade / (produto.minimo * 1.5)) * 100, 100)}
-            sx={{
-              height: 6,
-              borderRadius: 3,
-              bgcolor: alpha(theme.palette.grey[200], 0.5),
-              '& .MuiLinearProgress-bar': {
-                borderRadius: 3,
-                bgcolor: getBarColor(quantidade, produto.minimo),
-                transition: 'all 0.3s'
-              }
-            }}
-          />
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, textAlign: 'center' }}>
-            Min: {produto.minimo} | Atual: {quantidade} | Max: {Math.ceil(produto.minimo * 1.5)}
-          </Typography>
-        </Box>
-      </Box>
-    );
-  };
-
-  const CustomTableRow = ({ produto, onQuantityChange, onEdit }) => {
-    const [quantidade, setQuantidade] = useState(produto.estoque);
-    const [editingQuantity, setEditingQuantity] = useState(false);
-    const theme = useTheme();
-
-    // Atualiza o estado local quando o produto muda
-    useEffect(() => {
-      setQuantidade(produto.estoque);
-    }, [produto.estoque]);
-
-    return (
-      <TableRow
-        hover
-        sx={{
-          '&:nth-of-type(odd)': {
-            backgroundColor: theme.palette.mode === 'dark' ? alpha(theme.palette.common.white, 0.05) : alpha(theme.palette.common.black, 0.02),
-          },
-        }}
-      >
-        <TableCell align="center">{produto.sku}</TableCell>
-                      <TableCell align="center">
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center', 
-            width: '100%',
-            gap: 1 
-          }}>
-            {/* Controles de Estoque */}
-            <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            width: '100%',
-            maxWidth: 200
-          }}>
-                <Typography
-                  sx={{
-                    width: '80px',
-                    textAlign: 'center',
-                    py: 1,
-                    fontSize: '1rem',
-                    fontWeight: 'medium'
-                  }}
-                >
-                  {quantidade}
-                </Typography>
-          </Box>
-
-            {/* Limites de Estoque */}
-            <Typography variant="caption" color="text.secondary">
-              Min: {produto.minimo} | Max: {Math.ceil(produto.minimo * 1.5)}
-            </Typography>
-
-            {/* Barra de Progresso */}
-            <Box sx={{ width: '100%', maxWidth: 200 }}>
-              <LinearProgress
-                variant="determinate"
-                value={Math.min((quantidade / (produto.minimo * 1.5)) * 100, 100)}
-                sx={{
-                  height: 6,
-                  borderRadius: 3,
-                  bgcolor: alpha(theme.palette.grey[200], 0.5),
-                  '& .MuiLinearProgress-bar': {
-                    borderRadius: 3,
-                    bgcolor: getBarColor(quantidade, produto.minimo),
-                    transition: 'all 0.3s'
-                  }
-                }}
-              />
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, textAlign: 'center' }}>
-                Min: {produto.minimo} | Atual: {quantidade} | Max: {Math.ceil(produto.minimo * 1.5)}
-              </Typography>
-            </Box>
-
-            {/* Legenda da Barra */}
-                            <Box sx={{ 
-              display: 'flex', 
-              flexWrap: 'wrap', 
-              gap: 0.5, 
-              justifyContent: 'center',
-              mt: 0.5 
-            }}>
-              <Typography variant="caption" sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 0.5,
-                fontSize: '0.65rem' 
-              }}>
-                              <Box sx={{ 
-                  width: 8, 
-                  height: 8, 
-                  borderRadius: '50%', 
-                  bgcolor: theme.palette.error.main 
-                }} />
-                Sem Estoque
-              </Typography>
-              <Typography variant="caption" sx={{ 
-                                display: 'flex',
-                alignItems: 'center', 
-                gap: 0.5,
-                fontSize: '0.65rem' 
-              }}>
-                              <Box sx={{ 
-                  width: 8, 
-                  height: 8, 
-                  borderRadius: '50%', 
-                  bgcolor: theme.palette.warning.main 
-                }} />
-                Em Reposição
-              </Typography>
-              <Typography variant="caption" sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 0.5,
-                fontSize: '0.65rem' 
-              }}>
-                              <Box sx={{ 
-                  width: 8, 
-                  height: 8, 
-                  borderRadius: '50%', 
-                  bgcolor: theme.palette.secondary.main 
-                }} />
-                Em Negociação
-              </Typography>
-              <Typography variant="caption" sx={{ 
-                                display: 'flex',
-                alignItems: 'center', 
-                gap: 0.5,
-                fontSize: '0.65rem' 
-              }}>
-                              <Box sx={{ 
-                  width: 8, 
-                  height: 8, 
-                  borderRadius: '50%', 
-                  bgcolor: theme.palette.success.main 
-                }} />
-                Em Estoque
-              </Typography>
-              <Typography variant="caption" sx={{ 
-                                display: 'flex',
-                alignItems: 'center', 
-                gap: 0.5,
-                fontSize: '0.65rem' 
-              }}>
-                <Box sx={{ 
-                  width: 8, 
-                  height: 8, 
-                  borderRadius: '50%', 
-                  bgcolor: theme.palette.info.main 
-                }} />
-                Estoque Alto
-              </Typography>
-                          </Box>
-                        </Box>
-                      </TableCell>
-                      <TableCell align="center">
-          {`R$ ${produto.precoCompra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                      </TableCell>
-                      <TableCell align="center">
-          {`R$ ${produto.valorLiquidoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-                      </TableCell>
-                      <TableCell align="center">
-                        <Chip
-                          label={produto.status}
-            color={getStatusColor(produto.status)}
-                          size="small"
-            sx={{ minWidth: 100 }}
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-          <Typography>
-            {produto.vendasQuinzenais ? produto.vendasQuinzenais : '0'} un.
-                          </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-          <Typography>
-            {produto.previsaoDias ? `${produto.previsaoDias} dias` : 'N/A'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                          {produto.ultimaVenda ? new Date(produto.ultimaVenda).toLocaleDateString('pt-BR') : '-'}
-                      </TableCell>
-                      <TableCell align="center">
-                        <IconButton
-                          size="small"
-            onClick={() => onEdit(produto)}
-                          sx={{ 
-                            '&:hover': {
-                              color: theme.palette.primary.main,
-                              bgcolor: alpha(theme.palette.primary.main, 0.1)
-                            }
-                          }}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  );
-  };
-
-  const getPrevisaoColor = (dias) => {
-    if (dias <= 15) return 'error.main';
-    if (dias <= 30) return 'warning.main';
-    return 'success.main';
+  
+  // Função para alternar a visibilidade de um SKU
+  const toggleSkuVisibility = (sku) => {
+    setHiddenSkus(prev => {
+      if (prev.includes(sku)) {
+        return prev.filter(item => item !== sku);
+      } else {
+        return [...prev, sku];
+      }
+    });
   };
 
   const handleEdit = (produto) => {
@@ -931,7 +549,8 @@ export default function EstoqueTable({ onMetricasUpdate }) {
   const handleSaveEdit = async (produtoEditado) => {
     try {
       await atualizarEstoque(produtoEditado.sku, produtoEditado);
-      await fetchProdutos(); // Recarrega os dados após atualização
+      const dadosEstoque = await fetchEstoque(); // Recarrega os dados após atualização
+      setProdutos(dadosEstoque);
       setEditingProduto(null);
     } catch (error) {
       console.error('Erro ao salvar produto:', error);
@@ -939,6 +558,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
   };
 
   const columns = [
+    { id: 'acoes', label: 'Ações', minWidth: 120 },
     { id: 'sku', label: 'SKU', minWidth: 100 },
     { id: 'estoque', label: 'Estoque', minWidth: 150 },
     { id: 'precoCompra', label: 'Preço Compra', minWidth: 120 },
@@ -946,12 +566,11 @@ export default function EstoqueTable({ onMetricasUpdate }) {
     { id: 'status', label: 'Status', minWidth: 120 },
     { id: 'vendasQuinzenais', label: 'Vendas Quinzenais', minWidth: 120 },
     { id: 'previsaoDias', label: 'Previsão', minWidth: 100 },
-    { id: 'ultimaVenda', label: 'Última Venda', minWidth: 120 },
-    { id: 'acoes', label: 'Ações', minWidth: 80 }
+    { id: 'ultimaVenda', label: 'Última Venda', minWidth: 120 }
   ];
 
   return (
-    <Box sx={{ width: '100%', overflow: 'hidden' }}>
+    <Box sx={{ width: '100%' }}>
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
           <CircularProgress />
@@ -1035,15 +654,135 @@ export default function EstoqueTable({ onMetricasUpdate }) {
               </TableHead>
               <TableBody>
                 {filteredProdutos
-                  .sort((a, b) => b.estoque - a.estoque) // Ordena por estoque, do maior para o menor
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage) // Aplica paginação
-                  .map((produto) => (
-                    <CustomTableRow 
-                      key={produto.sku} 
-                      produto={produto}
-                      onEdit={handleEdit}
-                    />
-                  ))}
+                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  .map((produto) => {
+                    const isHidden = hiddenSkus.includes(produto.sku);
+                    return (
+                      <TableRow
+                        hover
+                        key={produto.sku}
+                        sx={{
+                          '&:nth-of-type(odd)': {
+                            backgroundColor: theme.palette.mode === 'dark' ? 
+                              alpha(theme.palette.common.white, 0.05) : 
+                              alpha(theme.palette.common.black, 0.02),
+                          },
+                          opacity: isHidden ? 0.5 : 1,
+                          filter: isHidden ? 'grayscale(50%)' : 'none',
+                          transition: 'opacity 0.3s, filter 0.3s',
+                        }}
+                      >
+                        <TableCell align="center">
+                          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleEdit(produto)}
+                              sx={{ 
+                                '&:hover': {
+                                  color: theme.palette.primary.main,
+                                  bgcolor: alpha(theme.palette.primary.main, 0.1)
+                                }
+                              }}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <Tooltip title={hiddenSkus.includes(produto.sku) ? "Mostrar SKU" : "Esconder SKU"}>
+                              <IconButton
+                                size="small"
+                                onClick={() => toggleSkuVisibility(produto.sku)}
+                                sx={{ 
+                                  color: hiddenSkus.includes(produto.sku) ? theme.palette.success.main : theme.palette.text.secondary,
+                                  '&:hover': {
+                                    bgcolor: alpha(hiddenSkus.includes(produto.sku) ? theme.palette.success.main : theme.palette.text.secondary, 0.1)
+                                  }
+                                }}
+                              >
+                                {hiddenSkus.includes(produto.sku) ? 
+                                  <VisibilityIcon fontSize="small" /> : 
+                                  <VisibilityOffIcon fontSize="small" />}
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        </TableCell>
+                        <TableCell align="center">{produto.sku}</TableCell>
+                        <TableCell align="center">
+                          <Box sx={{ 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            alignItems: 'center', 
+                            width: '100%',
+                            gap: 1 
+                          }}>
+                            <Box sx={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center',
+                              width: '100%',
+                              maxWidth: 200
+                            }}>
+                              <Typography
+                                sx={{
+                                  width: '80px',
+                                  textAlign: 'center',
+                                  py: 1,
+                                  fontSize: '1rem',
+                                  fontWeight: 'medium'
+                                }}
+                              >
+                                {produto.estoque}
+                              </Typography>
+                            </Box>
+                            <Typography variant="caption" color="text.secondary">
+                              Min: {produto.minimo} | Max: {Math.ceil(produto.minimo * 1.5)}
+                            </Typography>
+                            <Box sx={{ width: '100%', maxWidth: 200 }}>
+                              <LinearProgress
+                                variant="determinate"
+                                value={Math.min((produto.estoque / (produto.minimo * 1.5)) * 100, 100)}
+                                sx={{
+                                  height: 6,
+                                  borderRadius: 3,
+                                  bgcolor: alpha(theme.palette.grey[200], 0.5),
+                                  '& .MuiLinearProgress-bar': {
+                                    borderRadius: 3,
+                                    bgcolor: getBarColor(produto.estoque, produto.minimo),
+                                    transition: 'all 0.3s'
+                                  }
+                                }}
+                              />
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell align="center">
+                          {`R$ ${produto.precoCompra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                        </TableCell>
+                        <TableCell align="center">
+                          {`R$ ${produto.valorLiquidoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={produto.status}
+                            color={getStatusColor(produto.status)}
+                            size="small"
+                            sx={{ minWidth: 100 }}
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Typography>
+                            {produto.vendasQuinzenais ? produto.vendasQuinzenais : '0'} un.
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Typography>
+                            {produto.previsaoDias ? `${produto.previsaoDias} dias` : 'N/A'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          {produto.ultimaVenda ? new Date(produto.ultimaVenda).toLocaleDateString('pt-BR') : '-'}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
               </TableBody>
             </Table>
           </TableContainer>
@@ -1055,11 +794,8 @@ export default function EstoqueTable({ onMetricasUpdate }) {
             count={filteredProdutos.length}
             rowsPerPage={rowsPerPage}
             page={page}
-            onPageChange={(event, newPage) => setPage(newPage)}
-            onRowsPerPageChange={(event) => {
-              setRowsPerPage(parseInt(event.target.value, 10));
-              setPage(0);
-            }}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
             labelRowsPerPage="Linhas por página:"
             labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
           />
