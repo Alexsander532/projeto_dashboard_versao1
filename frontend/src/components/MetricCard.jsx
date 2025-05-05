@@ -32,13 +32,14 @@ const MetricCard = ({
 
   return (
     <Paper
-      elevation={0}
+      elevation={2}
       sx={{
         p: 3,
         height: '100%',
         backgroundColor: backgroundColor || 'background.paper',
         borderRadius: 2,
         transition: 'transform 0.2s, box-shadow 0.2s',
+        border: `1px solid ${backgroundColor ? backgroundColor.replace('0.1', '0.3') : 'transparent'}`,
         '&:hover': {
           transform: 'translateY(-4px)',
           boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
@@ -52,9 +53,10 @@ const MetricCard = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              p: 1,
-              borderRadius: 1,
+              p: 1.5,
+              borderRadius: 2,
               color: iconColor || 'primary.main',
+              backgroundColor: backgroundColor ? backgroundColor.replace('0.1', '0.2') : 'transparent',
             }}
           >
             {icon}

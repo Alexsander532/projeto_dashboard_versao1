@@ -353,7 +353,9 @@ export default function Estoque() {
                 title="Total em Estoque"
                 value={metricas.totalEstoque}
                 icon={<InventoryIcon />}
-                color="#0ea5e9"
+                iconColor="#2196F3" // Azul
+                backgroundColor="rgba(33, 150, 243, 0.1)"
+                isInteger
               />
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
@@ -361,7 +363,8 @@ export default function Estoque() {
                 title="Valor em Estoque"
                 value={metricas.valorTotal}
                 icon={<AttachMoneyIcon />}
-                color="#22c55e"
+                iconColor="#4CAF50" // Verde
+                backgroundColor="rgba(76, 175, 80, 0.1)"
                 isCurrency
               />
             </Grid>
@@ -370,7 +373,9 @@ export default function Estoque() {
                 title="Em Reposição"
                 value={metricas.estoqueCritico}
                 icon={<WarningIcon />}
-                color="#f97316"
+                iconColor="#FF9800" // Laranja
+                backgroundColor="rgba(255, 152, 0, 0.1)"
+                isInteger
               />
             </Grid>
           </Grid>
