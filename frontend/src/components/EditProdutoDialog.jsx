@@ -16,7 +16,6 @@ export default function EditProdutoDialog({ open, produto, onClose, onSave }) {
     if (produto) {
       setFormData({
         sku: produto.sku,
-        produto: produto.produto,
         estoque: produto.estoque,
         minimo: produto.minimo,
         precoCompra: produto.precoCompra,
@@ -58,17 +57,14 @@ export default function EditProdutoDialog({ open, produto, onClose, onSave }) {
             label="SKU"
             value={formData.sku || ''}
             disabled
-          />
-          <TextField
-            label="Produto"
-            value={formData.produto || ''}
-            onChange={handleChange('produto')}
+            sx={{ bgcolor: 'rgba(0, 0, 0, 0.04)' }}
           />
           <TextField
             label="Estoque"
             type="number"
             value={formData.estoque || ''}
-            onChange={handleChange('estoque')}
+            disabled
+            sx={{ bgcolor: 'rgba(0, 0, 0, 0.04)' }}
           />
           <TextField
             label="Mínimo"
