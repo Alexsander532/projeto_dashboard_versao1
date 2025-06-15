@@ -120,7 +120,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
           minimo: Number(produto.minimo) || 0,
           precoCompra: Number(produto.precoCompra) || 0,
           valorLiquidoMedio: Number(produto.valorLiquidoMedio) || 0,
-          valorLiquidoTotal: Number(produto.valorLiquidoTotal) || 0,
+          valorLiquidoTotal: Number(produto.precoCompra) * Number(produto.estoque) || 0,
           mediaVendas: Number(produto.mediaVendas) || 0,
           totalVendas: Number(produto.totalVendas) || 0,
           status: calcularStatus(
@@ -754,7 +754,12 @@ export default function EstoqueTable({ onMetricasUpdate }) {
                           </Box>
                         </TableCell>
                         <TableCell align="center">
-                          {`R$ ${produto.precoCompra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                          <EditableCell
+                            produto={produto}
+                            field="precoCompra"
+                            value={produto.precoCompra}
+                            type="number"
+                          />
                         </TableCell>
                         <TableCell align="center">
                           {`R$ ${produto.valorLiquidoTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
