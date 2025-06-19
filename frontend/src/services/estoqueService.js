@@ -19,7 +19,7 @@ export const fetchEstoque = async () => {
             minimo: Number(item.minimo) || 0,
             precoCompra: Number(item.cmv) || 0,
             valorLiquidoMedio: Number(item.valor_liquido) || 0,
-            valorLiquidoTotal: Number(item.valor_liquido * item.estoque) || 0,
+            valorLiquidoTotal: (Number(item.estoque) || 0) * (Number(item.cmv) || 0),
             mediaVendas: Number(item.media_vendas) || 0,
             vendasQuinzenais: Number(item.vendas_quinzenais) || 0,
             previsaoDias: item.previsao_dias ? Number(item.previsao_dias) : null,
@@ -42,7 +42,7 @@ export const atualizarEstoque = async (sku, produto) => {
             estoque: Number(produto.estoque),
             minimo: Number(produto.minimo),
             cmv: Number(produto.precoCompra),
-            valor_liquido: Number(produto.precoCompra) * Number(produto.estoque), // <-- ajuste aqui!
+            valor_liquido: Number(produto.valorLiquidoMedio), // Mantém o valor líquido médio original
             media_vendas: Number(produto.mediaVendas),
             total_vendas: Number(produto.totalVendas),
             ultima_venda: produto.ultimaVenda,

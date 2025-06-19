@@ -81,7 +81,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
   const atualizarMetricas = useCallback((dadosEstoque) => {
     const novasMetricas = {
       totalEstoque: dadosEstoque.reduce((acc, item) => acc + (Number(item.estoque) || 0), 0),
-      valorTotal: dadosEstoque.reduce((acc, item) => acc + ((Number(item.estoque) || 0) * (Number(item.valorLiquidoMedio) || 0)), 0),
+      valorTotal: dadosEstoque.reduce((acc, item) => acc + ((Number(item.estoque) || 0) * (Number(item.precoCompra) || 0)), 0),
       estoqueCritico: dadosEstoque.filter(item => item.status === 'Em reposição').length,
     };
     onMetricasUpdate(novasMetricas);
@@ -120,7 +120,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
           minimo: Number(produto.minimo) || 0,
           precoCompra: Number(produto.precoCompra) || 0,
           valorLiquidoMedio: Number(produto.valorLiquidoMedio) || 0,
-          valorLiquidoTotal: Number(produto.precoCompra) * Number(produto.estoque) || 0,
+          valorLiquidoTotal: (Number(produto.estoque) || 0) * (Number(produto.precoCompra) || 0),
           mediaVendas: Number(produto.mediaVendas) || 0,
           totalVendas: Number(produto.totalVendas) || 0,
           status: calcularStatus(
