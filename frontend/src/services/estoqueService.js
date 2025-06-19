@@ -42,7 +42,7 @@ export const atualizarEstoque = async (sku, produto) => {
             estoque: Number(produto.estoque),
             minimo: Number(produto.minimo),
             cmv: Number(produto.precoCompra),
-            valor_liquido: Number(produto.valorLiquidoMedio),
+            valor_liquido: Number(produto.precoCompra) * Number(produto.estoque), // <-- ajuste aqui!
             media_vendas: Number(produto.mediaVendas),
             total_vendas: Number(produto.totalVendas),
             ultima_venda: produto.ultimaVenda,
