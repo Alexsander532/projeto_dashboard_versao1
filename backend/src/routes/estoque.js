@@ -247,7 +247,7 @@ router.get('/metricas', async (req, res) => {
       SELECT 
         COALESCE(COUNT(*), 0) as total_produtos,
         COALESCE(SUM(estoque), 0) as total_estoque,
-        COALESCE(SUM(estoque * valor_liquido), 0) as valor_total_estoque,
+        COALESCE(SUM(estoque * cmv), 0) as valor_total_estoque,
         COALESCE(COUNT(CASE WHEN status = 'Em reposição' THEN 1 END), 0) as produtos_reposicao,
         COALESCE(COUNT(CASE WHEN status = 'Sem Estoque' THEN 1 END), 0) as produtos_sem_estoque,
         COALESCE(AVG(media_vendas), 0) as media_geral_vendas
