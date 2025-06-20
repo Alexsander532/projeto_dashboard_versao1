@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import {
   Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, TextField,
-  LinearProgress, Box, Typography, Chip
+  LinearProgress, Box, Typography, Chip,
+  useTheme, alpha
 } from '@mui/material';
 import { updateMeta } from '../services/metasService';
 import api from '../config/api';
 
 const MetasTable = ({ vendas, goals, marginGoals, onGoalChange, onMarginGoalChange }) => {
+  const theme = useTheme();
   const [editingGoal, setEditingGoal] = useState({});
   const [editingMargin, setEditingMargin] = useState({});
 
@@ -209,60 +211,93 @@ const MetasTable = ({ vendas, goals, marginGoals, onGoalChange, onMarginGoalChan
   }).sort((a, b) => b.progresso - a.progresso);
 
   return (
-    <TableContainer component={Paper} sx={{ mt: 3, overflow: 'auto' }}>
-      <Table size="small">
+    <TableContainer 
+      component={Paper}
+      sx={{
+        mt: 2,
+        overflow: 'auto',
+        '& .MuiTable-root': {
+          minWidth: 1200,
+        }
+      }}
+    >
+      <Table stickyHeader>
         <TableHead>
-          <TableRow sx={{ backgroundColor: '#1976d2' }}>
-            <TableCell 
-              sx={{ 
-                color: 'white', 
+          <TableRow>
+            <TableCell
+              align="center"
+              sx={{
+                minWidth: 100,
+                backgroundColor: theme.palette.primary.main,
+                color: 'white',
                 fontWeight: 'bold',
-                textAlign: 'center'
+                '& .MuiTableSortLabel-root': {
+                  color: 'white',
+                  '&:hover': {
+                    color: alpha(theme.palette.common.white, 0.7),
+                  },
+                  '&.Mui-active': {
+                    color: 'white',
+                    '& .MuiTableSortLabel-icon': {
+                      color: 'white',
+                    },
+                  },
+                },
               }}
             >
               SKU
             </TableCell>
-            <TableCell 
+            <TableCell
               align="center"
-              sx={{ 
-                color: 'white', 
-                fontWeight: 'bold' 
+              sx={{
+                minWidth: 150,
+                backgroundColor: theme.palette.primary.main,
+                color: 'white',
+                fontWeight: 'bold',
               }}
             >
               Vendas Realizadas
             </TableCell>
-            <TableCell 
+            <TableCell
               align="center"
-              sx={{ 
-                color: 'white', 
-                fontWeight: 'bold' 
+              sx={{
+                minWidth: 150,
+                backgroundColor: theme.palette.primary.main,
+                color: 'white',
+                fontWeight: 'bold',
               }}
             >
               Meta de Vendas
             </TableCell>
-            <TableCell 
+            <TableCell
               align="center"
-              sx={{ 
-                color: 'white', 
-                fontWeight: 'bold' 
+              sx={{
+                minWidth: 200,
+                backgroundColor: theme.palette.primary.main,
+                color: 'white',
+                fontWeight: 'bold',
               }}
             >
               Progresso
             </TableCell>
-            <TableCell 
+            <TableCell
               align="center"
-              sx={{ 
-                color: 'white', 
-                fontWeight: 'bold' 
+              sx={{
+                minWidth: 120,
+                backgroundColor: theme.palette.primary.main,
+                color: 'white',
+                fontWeight: 'bold',
               }}
             >
               Margem Atual
             </TableCell>
-            <TableCell 
+            <TableCell
               align="center"
-              sx={{ 
-                color: 'white', 
-                fontWeight: 'bold' 
+              sx={{
+                minWidth: 120,
+                backgroundColor: theme.palette.primary.main,
+                color: 'white',
+                fontWeight: 'bold',
               }}
             >
               Meta de Margem
@@ -282,10 +317,13 @@ const MetasTable = ({ vendas, goals, marginGoals, onGoalChange, onMarginGoalChan
                 key={`${venda.sku}-${index}`}
                 sx={{
                   '&:nth-of-type(odd)': {
-                    backgroundColor: '#f5f5f5',
+                    backgroundColor: alpha(theme.palette.action.hover, 0.04),
                   },
                   '&:hover': {
-                    backgroundColor: '#e3f2fd',
+                    backgroundColor: alpha(theme.palette.action.hover, 0.12),
+                  },
+                  '& .MuiTableCell-root': {
+                    borderBottom: `1px solid ${alpha(theme.palette.divider, 0.12)}`
                   }
                 }}
               >
@@ -310,6 +348,18 @@ const MetasTable = ({ vendas, goals, marginGoals, onGoalChange, onMarginGoalChan
                       width: '150px',
                       '& .MuiInputBase-input': {
                         padding: '8px 4px'
+                      },
+                      '& .MuiOutlinedInput-root': {
+                        backgroundColor: alpha(theme.palette.background.paper, 0.8),
+                        '& fieldset': {
+                          borderColor: alpha(theme.palette.divider, 0.23),
+                        },
+                        '&:hover fieldset': {
+                          borderColor: theme.palette.primary.main,
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: theme.palette.primary.main,
+                        }
                       }
                     }}
                   />
@@ -323,9 +373,10 @@ const MetasTable = ({ vendas, goals, marginGoals, onGoalChange, onMarginGoalChan
                         width: '100%', 
                         height: 8, 
                         borderRadius: 1,
-                        backgroundColor: 'rgba(0,0,0,0.1)',
+                        backgroundColor: alpha(theme.palette.grey[400], 0.3),
                         '& .MuiLinearProgress-bar': {
-                          backgroundColor: theme => theme.palette[statusVendas.color].main
+                          backgroundColor: theme.palette[statusVendas.color].main,
+                          borderRadius: 1
                         }
                       }}
                     />
@@ -363,6 +414,18 @@ const MetasTable = ({ vendas, goals, marginGoals, onGoalChange, onMarginGoalChan
                       width: '100px',
                       '& .MuiInputBase-input': {
                         padding: '8px 4px'
+                      },
+                      '& .MuiOutlinedInput-root': {
+                        backgroundColor: alpha(theme.palette.background.paper, 0.8),
+                        '& fieldset': {
+                          borderColor: alpha(theme.palette.divider, 0.23),
+                        },
+                        '&:hover fieldset': {
+                          borderColor: theme.palette.primary.main,
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: theme.palette.primary.main,
+                        }
                       }
                     }}
                   />
