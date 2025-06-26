@@ -58,30 +58,30 @@ export default function ProdutosTable({ formOpen, setFormOpen }) {
         setProdutos(formattedData);
       } catch (error) {
         console.error('Erro ao carregar produtos:', error);
-        const mockProdutos = [
-          {
-            id: 1,
-            sku: 'MLB123',
-            nome: 'Produto Teste ML',
-            cmv: 79.90,
-            estoque: 50,
-            status: 'ativo',
-            imagemUrl: ''
-          },
-          {
-            id: 2,
-            sku: 'MAG456',
-            nome: 'Produto Teste Magalu',
-            cmv: 129.90,
-            estoque: 30,
-            status: 'ativo',
-            imagemUrl: ''
-          }
-        ];
-        setProdutos(mockProdutos);
+      const mockProdutos = [
+        {
+          id: 1,
+          sku: 'MLB123',
+          nome: 'Produto Teste ML',
+          cmv: 79.90,
+          estoque: 50,
+          status: 'ativo',
+          imagemUrl: ''
+        },
+        {
+          id: 2,
+          sku: 'MAG456',
+          nome: 'Produto Teste Magalu',
+          cmv: 129.90,
+          estoque: 30,
+          status: 'ativo',
+          imagemUrl: ''
+        }
+      ];
+      setProdutos(mockProdutos);
       } finally {
         setLoading(false);
-      }
+    }
     };
 
     loadProdutos();
@@ -111,9 +111,9 @@ export default function ProdutosTable({ formOpen, setFormOpen }) {
       await deleteProduto(produtoToDelete.sku);
       
       const newProdutos = produtos.filter(p => p.sku !== produtoToDelete.sku);
-      setProdutos(newProdutos);
-      setDeleteDialogOpen(false);
-      setProdutoToDelete(null);
+    setProdutos(newProdutos);
+    setDeleteDialogOpen(false);
+    setProdutoToDelete(null);
     } catch (error) {
       console.error('Erro ao excluir produto:', error);
       alert('Erro ao excluir produto. Tente novamente.');
@@ -122,9 +122,9 @@ export default function ProdutosTable({ formOpen, setFormOpen }) {
 
   const handleFormSubmit = async (formData) => {
     try {
-      let newProdutos;
+    let newProdutos;
       
-      if (selectedProduto) {
+    if (selectedProduto) {
         const updatedProduto = await updateProduto(selectedProduto.sku, {
           nome: formData.nome,
           cmv_atual: formData.cmv,
@@ -133,7 +133,7 @@ export default function ProdutosTable({ formOpen, setFormOpen }) {
           imagem_url: formData.imagemUrl
         });
         
-        newProdutos = produtos.map(p =>
+      newProdutos = produtos.map(p =>
           p.sku === selectedProduto.sku ? {
             id: p.id,
             sku: p.sku,
@@ -143,8 +143,8 @@ export default function ProdutosTable({ formOpen, setFormOpen }) {
             status: updatedProduto.status.toLowerCase(),
             imagemUrl: updatedProduto.imagem_url || ''
           } : p
-        );
-      } else {
+      );
+    } else {
         const newProduto = await addProduto({
           sku: formData.sku,
           nome: formData.nome,
@@ -163,11 +163,11 @@ export default function ProdutosTable({ formOpen, setFormOpen }) {
           status: newProduto.status.toLowerCase(),
           imagemUrl: newProduto.imagem_url || ''
         }];
-      }
+    }
       
-      setProdutos(newProdutos);
-      setFormOpen(false);
-      setSelectedProduto(null);
+    setProdutos(newProdutos);
+    setFormOpen(false);
+    setSelectedProduto(null);
     } catch (error) {
       console.error('Erro ao salvar produto:', error);
       alert('Erro ao salvar produto. Tente novamente.');
