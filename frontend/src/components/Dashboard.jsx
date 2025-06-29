@@ -64,7 +64,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (dataInicial && dataFinal) {
-      carregarDados();
+    carregarDados();
     }
   }, [dataInicial, dataFinal, skuSelecionado]);
 
@@ -107,7 +107,7 @@ export default function Dashboard() {
         const valorVendido = Number(venda.valorVendido) || 0;
         const lucro = Number(venda.lucro) || 0;
         const unidades = Number(venda.unidades) || 0;
-
+      
         // Soma os valores
         acc.vendasTotais += valorVendido;
         acc.lucroLiquido += lucro;
