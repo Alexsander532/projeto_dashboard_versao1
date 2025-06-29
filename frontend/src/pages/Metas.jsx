@@ -19,8 +19,8 @@ import {
   ShoppingCart as ShoppingCartIcon,
   Assessment as AssessmentIcon,
   TrendingUp,
-  Brightness4,
-  Brightness7,
+  DarkMode as DarkModeIcon,
+  LightMode as LightModeIcon,
   Edit as EditIcon,
   Save as SaveIcon,
   CheckCircle as CheckCircleIcon,
@@ -364,6 +364,8 @@ const updateMeta = async (sku, data) => {
 };
 
 const Metas = () => {
+  const theme = useTheme();
+  const { isDark, setIsDark } = useAppTheme();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [loading, setLoading] = useState(false);
@@ -507,6 +509,10 @@ const Metas = () => {
     setSnackbarOpen(false);
   };
 
+  const handleToggleTheme = () => {
+    setIsDark(!isDark);
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -534,44 +540,133 @@ const Metas = () => {
           }
         }}
       >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, alignItems: 'center' }}>
-          <Typography variant="h4">Metas de Vendas</Typography>
-          <Grid container spacing={2} sx={{ maxWidth: 700, justifyContent: 'flex-end' }}>
-            <Grid item xs={4}>
-              <FormControl fullWidth size="small">
-                  <InputLabel>Ano</InputLabel>
-                <Select value={selectedYear} onChange={handleYearChange}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          mb: 3,
+          flexWrap: 'wrap',
+          gap: 2
+        }}>
+          <Typography variant="h4" sx={{ color: theme.palette.text.primary }}>
+            Metas de Vendas
+          </Typography>
+          
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 2,
+            flexWrap: 'wrap'
+          }}>
+            {/* Seletores de Ano e Mês */}
+            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+              <FormControl size="small" sx={{ minWidth: 100 }}>
+                <InputLabel 
+                  sx={{ 
+                    color: theme.palette.text.secondary,
+                    '&.Mui-focused': {
+                      color: theme.palette.primary.main
+                    }
+                  }}
+                >
+                  Ano
+                </InputLabel>
+                <Select 
+                  value={selectedYear} 
+                  onChange={handleYearChange}
+                  label="Ano"
+                  sx={{
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: alpha(theme.palette.divider, 0.23),
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: theme.palette.primary.main,
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: theme.palette.primary.main,
+                    },
+                    '& .MuiSelect-select': {
+                      color: theme.palette.text.primary,
+                    }
+                  }}
+                >
                   {[2023, 2024, 2025].map(year => (
-                      <MenuItem key={year} value={year}>{year}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-            </Grid>
-            <Grid item xs={4}>
-              <FormControl fullWidth size="small">
-                  <InputLabel>Mês</InputLabel>
-                <Select value={selectedMonth} onChange={handleMonthChange}>
+                    <MenuItem key={year} value={year}>{year}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl size="small" sx={{ minWidth: 120 }}>
+                <InputLabel
+                  sx={{ 
+                    color: theme.palette.text.secondary,
+                    '&.Mui-focused': {
+                      color: theme.palette.primary.main
+                    }
+                  }}
+                >
+                  Mês
+                </InputLabel>
+                <Select 
+                  value={selectedMonth} 
+                  onChange={handleMonthChange}
+                  label="Mês"
+                  sx={{
+                    '& .MuiOutlinedInput-notchedOutline': {
+                      borderColor: alpha(theme.palette.divider, 0.23),
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: theme.palette.primary.main,
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: theme.palette.primary.main,
+                    },
+                    '& .MuiSelect-select': {
+                      color: theme.palette.text.primary,
+                    }
+                  }}
+                >
                   {Array.from({ length: 12 }, (_, i) => (
                     <MenuItem key={i + 1} value={i + 1}>
                       {format(new Date(2024, i), 'MMMM', { locale: ptBR })}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-            </Grid>
-            <Grid item xs={4}>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<PictureAsPdfIcon />}
-                onClick={handleGerarRelatorio}
-                fullWidth
-                sx={{ height: '40px' }}
-              >
-                Gerar Relatório
-              </Button>
-            </Grid>
-          </Grid>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* Botão de alternar tema */}
+            <IconButton
+              onClick={handleToggleTheme}
+              sx={{
+                color: theme.palette.text.primary,
+                backgroundColor: alpha(theme.palette.action.hover, 0.08),
+                border: `1px solid ${alpha(theme.palette.divider, 0.12)}`,
+                '&:hover': {
+                  backgroundColor: alpha(theme.palette.action.hover, 0.12),
+                },
+                transition: 'all 0.2s ease-in-out'
+              }}
+              size="small"
+            >
+              {isDark ? <LightModeIcon /> : <DarkModeIcon />}
+            </IconButton>
+
+            {/* Botão de Gerar Relatório */}
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<PictureAsPdfIcon />}
+              onClick={handleGerarRelatorio}
+              sx={{ 
+                height: '40px',
+                minWidth: 160,
+                fontWeight: 'medium'
+              }}
+            >
+              Gerar Relatório
+            </Button>
+          </Box>
         </Box>
 
         <MetasMetrics stats={totalStats} />
