@@ -1,1 +1,1 @@
-VITE_API_URL=http://localhost:3001
+VITE_API_URL=https://projetodashboardversao1-production.up.railway.app

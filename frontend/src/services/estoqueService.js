@@ -1,4 +1,5 @@
 import axios from 'axios';
+import api from '../config/api';
 
 const calcularStatus = (estoque, minimo) => {
     if (estoque === 0) return 'Sem Estoque';
@@ -10,7 +11,7 @@ const calcularStatus = (estoque, minimo) => {
 
 export const fetchEstoque = async () => {
     try {
-        const response = await axios.get('http://localhost:3001/api/estoque');
+        const response = await api.get('/api/estoque');
         return response.data.map(item => ({
             id: Number(item.id),
             sku: item.sku,
@@ -37,7 +38,7 @@ export const fetchEstoque = async () => {
 
 export const atualizarEstoque = async (sku, produto) => {
     try {
-        const response = await axios.put(`http://localhost:3001/api/estoque/${sku}`, {
+        const response = await api.put(`/api/estoque/${sku}`, {
             descricao: produto.produto,
             estoque: Number(produto.estoque),
             minimo: Number(produto.minimo),
@@ -57,7 +58,7 @@ export const atualizarEstoque = async (sku, produto) => {
 
 export const atualizarQuantidade = async (sku, delta) => {
     try {
-        const response = await axios.post(`http://localhost:3001/api/estoque/${sku}/quantidade`, { delta });
+        const response = await api.post(`/api/estoque/${sku}/quantidade`, { delta });
         return response.data;
     } catch (error) {
         console.error('Erro ao atualizar quantidade:', error);
