@@ -732,10 +732,10 @@ export default function EstoqueTable({ onMetricasUpdate }) {
                                 {produto.estoque}
                               </Typography>
                             </Box>
-                            <Typography variant="caption" color="text.secondary">
+                            {/* <Typography variant="caption" color="text.secondary">
                               Min: {produto.minimo} | Max: {Math.ceil(produto.minimo * 1.5)}
-                            </Typography>
-                            <Box sx={{ width: '100%', maxWidth: 200 }}>
+                            </Typography> */}
+                            {/* <Box sx={{ width: '100%', maxWidth: 200 }}>
                               <LinearProgress
                                 variant="determinate"
                                 value={Math.min((produto.estoque / (produto.minimo * 1.5)) * 100, 100)}
@@ -750,7 +750,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
                                   }
                                 }}
                               />
-                            </Box>
+                            </Box> */}
                           </Box>
                         </TableCell>
                         <TableCell align="center">
