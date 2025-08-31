@@ -548,7 +548,17 @@ export default function EstoqueTable({ onMetricasUpdate }) {
 
   const handleSaveEdit = async (produtoEditado) => {
     try {
-      await atualizarEstoque(produtoEditado.sku, produtoEditado);
+      // Mescla os dados editados com os dados originais do produto
+      const produtoCompleto = {
+        ...editingProduto,
+        ...produtoEditado
+      };
+      
+      console.log('Produto editado:', produtoEditado);
+      console.log('Produto original:', editingProduto);
+      console.log('Produto completo a ser enviado:', produtoCompleto);
+      
+      await atualizarEstoque(produtoEditado.sku, produtoCompleto);
       const dadosEstoque = await fetchEstoque(); // Recarrega os dados após atualização
       setProdutos(dadosEstoque);
       setEditingProduto(null);
@@ -566,7 +576,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
     { id: 'status', label: 'Status', minWidth: 120 },
     { id: 'vendasQuinzenais', label: 'Vendas Quinzenais', minWidth: 120 },
     { id: 'previsaoDias', label: 'Previsão', minWidth: 100 },
-    { id: 'ultimaVenda', label: 'Última Venda', minWidth: 120 }
+    // { id: 'ultimaVenda', label: 'Última Venda', minWidth: 120 }
   ];
 
   return (
@@ -782,9 +792,9 @@ export default function EstoqueTable({ onMetricasUpdate }) {
                             {produto.previsaoDias ? `${produto.previsaoDias} dias` : 'N/A'}
                           </Typography>
                         </TableCell>
-                        <TableCell align="center">
+                        {/* <TableCell align="center">
                           {produto.ultimaVenda ? new Date(produto.ultimaVenda).toLocaleDateString('pt-BR') : '-'}
-                        </TableCell>
+                        </TableCell> */}
                       </TableRow>
                     );
                   })}

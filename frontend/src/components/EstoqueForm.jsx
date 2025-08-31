@@ -27,11 +27,11 @@ function EstoqueForm({ open, onClose, onSubmit, produto }) {
     if (produto) {
       setFormData({
         sku: produto.sku || '',
-        descricao: produto.descricao || '',
+        descricao: produto.produto || produto.descricao || '',
         estoque: produto.estoque || '',
-        cmv: produto.cmv || '',
+        cmv: produto.precoCompra || produto.cmv || '',
         minimo: produto.minimo || '',
-        valor_liquido: produto.valor_liquido || ''
+        valor_liquido: produto.valorLiquidoMedio || produto.valor_liquido || ''
       });
     } else {
       setFormData({
@@ -56,11 +56,12 @@ function EstoqueForm({ open, onClose, onSubmit, produto }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     onSubmit({
-      ...formData,
+      produto: formData.descricao,
       estoque: Number(formData.estoque),
-      cmv: Number(formData.cmv),
+      precoCompra: Number(formData.cmv),
       minimo: Number(formData.minimo),
-      valor_liquido: Number(formData.valor_liquido)
+      valorLiquidoMedio: Number(formData.valor_liquido),
+      sku: formData.sku
     });
   };
 

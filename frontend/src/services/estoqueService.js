@@ -38,17 +38,18 @@ export const fetchEstoque = async () => {
 
 export const atualizarEstoque = async (sku, produto) => {
     try {
-        const response = await api.put(`/api/estoque/${sku}`, {
-            descricao: produto.produto,
+        const dadosParaEnviar = {
+            produto: produto.produto,
             estoque: Number(produto.estoque),
             minimo: Number(produto.minimo),
-            cmv: Number(produto.precoCompra),
-            valor_liquido: Number(produto.valorLiquidoMedio), // Mantém o valor líquido médio original
-            media_vendas: Number(produto.mediaVendas),
-            total_vendas: Number(produto.totalVendas),
-            ultima_venda: produto.ultimaVenda,
+            precoCompra: Number(produto.precoCompra),
+            valorLiquidoMedio: Number(produto.valorLiquidoMedio),
             status: produto.status
-        });
+        };
+        
+        console.log('Dados que serão enviados para o backend:', dadosParaEnviar);
+        
+        const response = await api.put(`/api/estoque/${sku}`, dadosParaEnviar);
         return response.data;
     } catch (error) {
         console.error('Erro ao atualizar produto:', error);
