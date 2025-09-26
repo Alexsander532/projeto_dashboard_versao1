@@ -27,7 +27,6 @@ export default function Sidebar() {
   const [isHovered, setIsHovered] = useState(false);
 
   const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
     { text: 'Mercado Livre', icon: <ShoppingCartIcon />, path: '/mercado-livre' },
     { text: 'Magazine Luiza', icon: <StoreIcon />, path: '/magazine-luiza' },
     { text: 'Estoque', icon: <InventoryIcon />, path: '/estoque' },
@@ -123,4 +122,4 @@ export default function Sidebar() {
       </List>
     </Box>
   );
-} 
+}

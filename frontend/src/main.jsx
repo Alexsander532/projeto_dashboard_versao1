@@ -1,9 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
 import App from './App';
 import './index.css';
-import VisaoGeral from './pages/VisaoGeral';
 import MercadoLivre from './pages/MercadoLivre';
 import MagazineLuiza from './pages/MagazineLuiza';
 import Estoque from './pages/Estoque';
@@ -18,8 +17,7 @@ const router = createBrowserRouter([
     path: '/',
     element: <App />,
     children: [
-      { path: '/', element: <VisaoGeral /> },
-      { path: '/visao-geral', element: <VisaoGeral /> },
+      { path: '/', element: <Navigate to="/mercado-livre" replace /> },
       { path: '/mercado-livre', element: <MercadoLivre /> },
       { path: '/magazine-luiza', element: <MagazineLuiza /> },
       { path: '/compras', element: <Compras /> },
