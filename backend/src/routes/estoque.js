@@ -271,6 +271,47 @@ router.get('/metricas', async (req, res) => {
   }
 });
 
+// Rota PUT para atualizar apenas o CMV de um produto
+router.put('/:sku/cmv', async (req, res) => {
+  const { sku } = req.params;
+  const { cmv } = req.body;
+  
+  try {
+    // Validação do CMV
+    if (cmv === undefined || cmv === null) {
+      return res.status(400).json({ error: 'CMV é obrigatório' });
+    }
+    
+    const cmvNumerico = parseFloat(cmv);
+    if (isNaN(cmvNumerico) || cmvNumerico < 0) {
+      return res.status(400).json({ error: 'CMV deve ser um número válido e não negativo' });
+    }
+    
+    console.log(`Atualizando CMV do produto ${sku} para ${cmvNumerico}`);
+    
+    const query = `
+      UPDATE estoque 
+      SET 
+        cmv = $1,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE sku = $2
+      RETURNING *
+    `;
+    
+    const result = await pool.query(query, [cmvNumerico, sku]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Produto não encontrado' });
+    }
+    
+    console.log(`CMV atualizado com sucesso para o produto ${sku}: ${cmvNumerico}`);
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Erro ao atualizar CMV:', error);
+    res.status(500).json({ error: 'Erro ao atualizar CMV' });
+  }
+});
+
 // Rota para atualizar a quantidade em estoque
 router.post('/:sku/quantidade', async (req, res) => {
   const { sku } = req.params;
@@ -299,4 +340,4 @@ router.post('/:sku/quantidade', async (req, res) => {
 });
 
 // Exporta o router como uma função middleware
-module.exports = router; 
+module.exports = router;

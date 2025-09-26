@@ -129,4 +129,167 @@ router.delete('/api/produtos/:sku', async (req, res) => {
     }
 });
 
-module.exports = router; 
+// ========================================
+// NOVA FUNCIONALIDADE: PRODUTOS DO ESTOQUE
+// ========================================
+
+/**
+ * GET /api/produtos/estoque
+ * 
+ * Esta rota busca todos os produtos diretamente da tabela de estoque,
+ * ao invés da tabela produtos. Isso garante que sempre tenhamos os dados
+ * mais atualizados e elimina a duplicação de informações.
+ * 
+ * Campos retornados:
+ * - sku: Código único do produto
+ * - nome: Descrição do produto (campo 'descricao' da tabela estoque)
+ * - cmv_atual: Custo da Mercadoria Vendida (campo 'cmv' da tabela estoque)
+ * - estoque: Quantidade em estoque
+ * - status: Sempre 'ativo' (pode ser expandido futuramente)
+ * 
+ * Vantagens desta abordagem:
+ * 1. Fonte única de verdade (tabela estoque)
+ * 2. Dados sempre sincronizados
+ * 3. Não há risco de inconsistência entre tabelas
+ * 4. Carregamento automático de todos os SKUs
+ */
+router.get('/estoque', async (req, res) => {
+    try {
+        console.log('=== INICIANDO BUSCA DE PRODUTOS DO ESTOQUE ===');
+        console.log('Rota acessada: /api/produtos/estoque');
+        console.log('Timestamp:', new Date().toISOString());
+        
+        // Query SQL que busca dados da tabela estoque
+        // Mapeamos os campos para manter compatibilidade com o frontend
+        const query = `
+            SELECT 
+                sku,                    -- Código único do produto
+                descricao as nome,      -- Descrição vira 'nome' para compatibilidade
+                cmv as cmv_atual,       -- CMV vira 'cmv_atual' para compatibilidade
+                estoque,                -- Quantidade em estoque
+                'ativo' as status       -- Status fixo como 'ativo'
+            FROM estoque
+            WHERE sku IS NOT NULL       -- Garante que só pegamos SKUs válidos
+            AND sku != ''               -- Exclui SKUs vazios
+            ORDER BY sku ASC            -- Ordena alfabeticamente por SKU
+        `;
+        
+        console.log('Executando query na tabela estoque...');
+        const result = await pool.query(query);
+        
+        console.log(`✅ Query executada com sucesso!`);
+        console.log(`📊 Total de produtos encontrados: ${result.rows.length}`);
+        
+        // Log de alguns exemplos para debug (apenas os primeiros 3)
+        if (result.rows.length > 0) {
+            console.log('📋 Primeiros produtos encontrados:');
+            result.rows.slice(0, 3).forEach((produto, index) => {
+                console.log(`   ${index + 1}. SKU: ${produto.sku} | Nome: ${produto.nome} | CMV: R$ ${produto.cmv_atual}`);
+            });
+        }
+        
+        // Retorna os dados no formato esperado pelo frontend
+        res.json(result.rows);
+        
+    } catch (error) {
+        console.error('❌ ERRO na rota /api/produtos/estoque:', error);
+        console.error('Detalhes do erro:', {
+            message: error.message,
+            code: error.code,
+            detail: error.detail
+        });
+        
+        res.status(500).json({ 
+            error: 'Erro interno do servidor ao buscar produtos do estoque',
+            details: error.message 
+        });
+    }
+});
+
+/**
+ * PUT /api/produtos/estoque/:sku
+ * 
+ * Esta rota permite atualizar o CMV (Custo da Mercadoria Vendida) 
+ * de um produto específico diretamente na tabela de estoque.
+ * 
+ * Parâmetros:
+ * - sku (URL): Código único do produto a ser atualizado
+ * - cmv_atual (body): Novo valor do CMV
+ * 
+ * Esta é a funcionalidade principal que permite editar o preço
+ * de compra diretamente da página de produtos.
+ */
+router.put('/estoque/:sku', async (req, res) => {
+    try {
+        const { sku } = req.params;
+        const { cmv_atual } = req.body;
+        
+        console.log('=== ATUALIZANDO CMV DO PRODUTO ===');
+        console.log(`SKU: ${sku}`);
+        console.log(`Novo CMV: R$ ${cmv_atual}`);
+        console.log('Timestamp:', new Date().toISOString());
+        
+        // Validação básica dos dados recebidos
+        if (!sku || sku.trim() === '') {
+            console.log('❌ Erro: SKU não fornecido ou vazio');
+            return res.status(400).json({ error: 'SKU é obrigatório' });
+        }
+        
+        if (cmv_atual === undefined || cmv_atual === null) {
+            console.log('❌ Erro: CMV não fornecido');
+            return res.status(400).json({ error: 'CMV atual é obrigatório' });
+        }
+        
+        if (isNaN(cmv_atual) || cmv_atual < 0) {
+            console.log('❌ Erro: CMV inválido');
+            return res.status(400).json({ error: 'CMV deve ser um número positivo' });
+        }
+        
+        console.log('✅ Validações passaram, executando update...');
+        
+        // Query para atualizar o CMV na tabela estoque
+        const updateQuery = `
+            UPDATE estoque 
+            SET cmv = $1                    -- Novo valor do CMV
+            WHERE sku = $2                  -- Filtro pelo SKU
+            RETURNING 
+                sku,
+                descricao as nome,
+                cmv as cmv_atual,
+                estoque,
+                'ativo' as status
+        `;
+        
+        const result = await pool.query(updateQuery, [cmv_atual, sku]);
+        
+        // Verifica se o produto foi encontrado e atualizado
+        if (result.rows.length === 0) {
+            console.log(`❌ Produto com SKU ${sku} não encontrado no estoque`);
+            return res.status(404).json({ error: 'Produto não encontrado no estoque' });
+        }
+        
+        console.log('✅ CMV atualizado com sucesso!');
+        console.log('📊 Dados atualizados:', result.rows[0]);
+        
+        // Retorna o produto atualizado
+        res.json({
+            message: 'CMV atualizado com sucesso',
+            produto: result.rows[0]
+        });
+        
+    } catch (error) {
+        console.error('❌ ERRO ao atualizar CMV:', error);
+        console.error('Detalhes do erro:', {
+            message: error.message,
+            code: error.code,
+            detail: error.detail
+        });
+        
+        res.status(500).json({ 
+            error: 'Erro interno do servidor ao atualizar CMV',
+            details: error.message 
+        });
+    }
+});
+
+module.exports = router;

@@ -18,420 +18,613 @@ import {
   Button,
   Box,
   Typography,
-  Paper
+  Paper,
+  TextField,
+  Alert,
+  Snackbar
 } from '@mui/material';
 import {
   Edit as EditIcon,
-  Delete as DeleteIcon,
-  Warning as WarningIcon
+  Save as SaveIcon,
+  Cancel as CancelIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
-import ProdutoForm from './ProdutoForm';
-import { fetchProdutos, addProduto, updateProduto, deleteProduto } from '../services/produtosService';
 
-export default function ProdutosTable({ formOpen, setFormOpen }) {
+// Importando as novas funções que trabalham com dados do estoque
+import { 
+  fetchProdutosEstoque, 
+  updateProdutoCMV, 
+  formatarMoeda, 
+  validarSKU 
+} from '../services/produtosService';
+
+/**
+ * Componente ProdutosTable - Nova versão baseada em dados do estoque
+ * 
+ * Esta versão foi completamente reformulada para:
+ * 1. Buscar dados diretamente da tabela estoque
+ * 2. Exibir apenas as colunas essenciais: SKU, Nome, CMV, Estoque
+ * 3. Permitir edição inline do CMV
+ * 4. Manter sincronização automática com o estoque
+ * 
+ * Funcionalidades:
+ * - Carregamento automático de todos os SKUs do estoque
+ * - Edição inline do CMV (Custo da Mercadoria Vendida)
+ * - Paginação para melhor performance
+ * - Feedback visual para operações
+ * - Logs detalhados para debug
+ */
+export default function ProdutosTable() {
+  // ========================================
+  // ESTADOS DO COMPONENTE
+  // ========================================
+  
   const theme = useTheme();
+  
+  // Estados para paginação
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  
+  // Estados para dados
   const [produtos, setProdutos] = useState([]);
-  const [selectedProduto, setSelectedProduto] = useState(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [produtoToDelete, setProdutoToDelete] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Estados para edição inline
+  const [editingProduct, setEditingProduct] = useState(null); // SKU do produto sendo editado
+  const [editValue, setEditValue] = useState(''); // Valor temporário durante edição
+  const [saving, setSaving] = useState(false); // Estado de salvamento
+  
+  // Estados para feedback
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
 
+  // ========================================
+  // EFEITOS E CARREGAMENTO DE DADOS
+  // ========================================
+
+  /**
+   * useEffect principal - Carrega produtos do estoque quando o componente monta
+   * 
+   * Este efeito é executado apenas uma vez quando o componente é montado.
+   * Ele chama a função loadProdutos() que busca todos os dados do estoque.
+   */
   useEffect(() => {
-    const loadProdutos = async () => {
-      try {
-        setLoading(true);
-        const data = await fetchProdutos();
-        
-        const formattedData = data.map(item => ({
-          id: item.id,
-          sku: item.sku,
-          nome: item.nome,
-          cmv: Number(item.cmv_atual),
-          estoque: Number(item.estoque),
-          status: item.status.toLowerCase(),
-          imagemUrl: item.imagem_url || ''
-        }));
-        
-        setProdutos(formattedData);
-      } catch (error) {
-        console.error('Erro ao carregar produtos:', error);
-      const mockProdutos = [
-        {
-          id: 1,
-          sku: 'MLB123',
-          nome: 'Produto Teste ML',
-          cmv: 79.90,
-          estoque: 50,
-          status: 'ativo',
-          imagemUrl: ''
-        },
-        {
-          id: 2,
-          sku: 'MAG456',
-          nome: 'Produto Teste Magalu',
-          cmv: 129.90,
-          estoque: 30,
-          status: 'ativo',
-          imagemUrl: ''
-        }
-      ];
-      setProdutos(mockProdutos);
-      } finally {
-        setLoading(false);
-    }
-    };
-
     loadProdutos();
   }, []);
 
+  /**
+   * Função para carregar produtos da tabela estoque
+   * 
+   * Esta função:
+   * 1. Ativa o estado de loading
+   * 2. Chama a API para buscar dados do estoque
+   * 3. Formata os dados para exibição
+   * 4. Trata erros e exibe feedback
+   */
+  const loadProdutos = async () => {
+    try {
+      console.log('🔄 Iniciando carregamento de produtos do estoque...');
+      setLoading(true);
+      setError(null);
+      
+      // Chama a nova função que busca dados do estoque
+      const data = await fetchProdutosEstoque();
+      
+      console.log(`✅ ${data.length} produtos carregados com sucesso`);
+      
+      // Formata os dados para garantir tipos corretos
+      const formattedData = data.map(item => ({
+        sku: item.sku,
+        nome: item.nome || 'Nome não informado',
+        cmv_atual: Number(item.cmv_atual) || 0,
+        estoque: Number(item.estoque) || 0,
+        status: item.status || 'ativo'
+      }));
+      
+      setProdutos(formattedData);
+      
+      // Feedback de sucesso
+      setSnackbar({
+        open: true,
+        message: `${formattedData.length} produtos carregados com sucesso!`,
+        severity: 'success'
+      });
+      
+    } catch (error) {
+      console.error('❌ Erro ao carregar produtos:', error);
+      
+      setError('Erro ao carregar produtos do estoque. Tente novamente.');
+      
+      // Feedback de erro
+      setSnackbar({
+        open: true,
+        message: 'Erro ao carregar produtos. Verifique sua conexão.',
+        severity: 'error'
+      });
+      
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ========================================
+  // FUNÇÕES DE PAGINAÇÃO
+  // ========================================
+
+  /**
+   * Manipula mudança de página na paginação
+   */
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
   };
 
+  /**
+   * Manipula mudança na quantidade de itens por página
+   */
   const handleChangeRowsPerPage = (event) => {
     setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
+    setPage(0); // Volta para primeira página
   };
 
-  const handleEdit = (produto) => {
-    setSelectedProduto(produto);
-    setFormOpen(true);
+  // ========================================
+  // FUNÇÕES DE EDIÇÃO INLINE
+  // ========================================
+
+  /**
+   * Inicia edição de um produto
+   * 
+   * @param {Object} produto - Produto a ser editado
+   */
+  const handleStartEdit = (produto) => {
+    console.log(`✏️ Iniciando edição do produto ${produto.sku}`);
+    setEditingProduct(produto.sku);
+    setEditValue(produto.cmv_atual.toString());
   };
 
-  const handleDelete = (produto) => {
-    setProdutoToDelete(produto);
-    setDeleteDialogOpen(true);
+  /**
+   * Cancela edição em andamento
+   */
+  const handleCancelEdit = () => {
+    console.log('❌ Cancelando edição');
+    setEditingProduct(null);
+    setEditValue('');
   };
 
-  const confirmDelete = async () => {
+  /**
+   * Salva alterações do CMV
+   * 
+   * Esta função:
+   * 1. Valida os dados inseridos
+   * 2. Chama a API para atualizar o CMV
+   * 3. Atualiza a lista local de produtos
+   * 4. Fornece feedback visual
+   */
+  const handleSaveEdit = async () => {
     try {
-      await deleteProduto(produtoToDelete.sku);
+      setSaving(true);
       
-      const newProdutos = produtos.filter(p => p.sku !== produtoToDelete.sku);
-    setProdutos(newProdutos);
-    setDeleteDialogOpen(false);
-    setProdutoToDelete(null);
-    } catch (error) {
-      console.error('Erro ao excluir produto:', error);
-      alert('Erro ao excluir produto. Tente novamente.');
-    }
-  };
-
-  const handleFormSubmit = async (formData) => {
-    try {
-    let newProdutos;
+      // Validações básicas
+      const newCMV = parseFloat(editValue);
       
-    if (selectedProduto) {
-        const updatedProduto = await updateProduto(selectedProduto.sku, {
-          nome: formData.nome,
-          cmv_atual: formData.cmv,
-          estoque: formData.estoque,
-          status: formData.status,
-          imagem_url: formData.imagemUrl
+      if (isNaN(newCMV) || newCMV < 0) {
+        setSnackbar({
+          open: true,
+          message: 'CMV deve ser um número positivo',
+          severity: 'error'
         });
-        
-      newProdutos = produtos.map(p =>
-          p.sku === selectedProduto.sku ? {
-            id: p.id,
-            sku: p.sku,
-            nome: updatedProduto.nome,
-            cmv: Number(updatedProduto.cmv_atual),
-            estoque: Number(updatedProduto.estoque),
-            status: updatedProduto.status.toLowerCase(),
-            imagemUrl: updatedProduto.imagem_url || ''
-          } : p
+        return;
+      }
+      
+      console.log(`💾 Salvando CMV ${newCMV} para produto ${editingProduct}`);
+      
+      // Chama a API para atualizar o CMV
+      await updateProdutoCMV(editingProduct, newCMV);
+      
+      // Atualiza a lista local de produtos
+      setProdutos(prevProdutos => 
+        prevProdutos.map(produto => 
+          produto.sku === editingProduct 
+            ? { ...produto, cmv_atual: newCMV }
+            : produto
+        )
       );
-    } else {
-        const newProduto = await addProduto({
-          sku: formData.sku,
-          nome: formData.nome,
-          cmv_atual: formData.cmv,
-          estoque: formData.estoque,
-          status: formData.status,
-          imagem_url: formData.imagemUrl
-        });
-        
-        newProdutos = [...produtos, {
-          id: newProduto.id,
-          sku: newProduto.sku,
-          nome: newProduto.nome,
-          cmv: Number(newProduto.cmv_atual),
-          estoque: Number(newProduto.estoque),
-          status: newProduto.status.toLowerCase(),
-          imagemUrl: newProduto.imagem_url || ''
-        }];
-    }
       
-    setProdutos(newProdutos);
-    setFormOpen(false);
-    setSelectedProduto(null);
+      // Limpa estados de edição
+      setEditingProduct(null);
+      setEditValue('');
+      
+      // Feedback de sucesso
+      setSnackbar({
+        open: true,
+        message: `CMV do produto ${editingProduct} atualizado com sucesso!`,
+        severity: 'success'
+      });
+      
+      console.log('✅ CMV atualizado com sucesso');
+      
     } catch (error) {
-      console.error('Erro ao salvar produto:', error);
-      alert('Erro ao salvar produto. Tente novamente.');
+      console.error('❌ Erro ao salvar CMV:', error);
+      
+      setSnackbar({
+        open: true,
+        message: `Erro ao atualizar CMV: ${error.message}`,
+        severity: 'error'
+      });
+      
+    } finally {
+      setSaving(false);
     }
   };
 
+  // ========================================
+  // FUNÇÕES AUXILIARES
+  // ========================================
+
+  /**
+   * Fecha o snackbar de feedback
+   */
+  const handleCloseSnackbar = () => {
+    setSnackbar(prev => ({ ...prev, open: false }));
+  };
+
+  /**
+   * Força recarregamento dos dados
+   */
+  const handleRefresh = () => {
+    console.log('🔄 Recarregando dados...');
+    loadProdutos();
+  };
+
+  // ========================================
+  // RENDERIZAÇÃO CONDICIONAL
+  // ========================================
+
+  // Estado de carregamento
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-        <Typography>Carregando produtos...</Typography>
+        <Typography>🔄 Carregando produtos do estoque...</Typography>
       </Box>
     );
   }
 
+  // Estado de erro
   if (error) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3, color: 'error.main' }}>
-        <Typography>{error}</Typography>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 3 }}>
+        <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>
+        <Button variant="contained" onClick={handleRefresh} startIcon={<RefreshIcon />}>
+          Tentar Novamente
+        </Button>
       </Box>
     );
   }
 
+  // ========================================
+  // RENDERIZAÇÃO PRINCIPAL
+  // ========================================
+
   return (
-    <>
-      <TableContainer component={Paper}>
+    <Box sx={{ 
+      width: '100%', 
+      maxWidth: '1400px', 
+      margin: '0 auto', 
+      padding: { xs: 2, sm: 3, md: 4 },
+      minHeight: '100vh',
+      backgroundColor: 'background.default'
+    }}>
+      {/* Cabeçalho melhorado com design mais elegante */}
+      <Paper 
+        elevation={2}
+        sx={{ 
+          p: 3, 
+          mb: 3, 
+          borderRadius: 2,
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white'
+        }}
+      >
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 2
+        }}>
+          <Box>
+            <Typography variant="h5" component="h1" sx={{ fontWeight: 600, mb: 0.5 }}>
+              📦 Produtos do Estoque
+            </Typography>
+            <Typography variant="body1" sx={{ opacity: 0.9 }}>
+              {produtos.length} itens cadastrados
+            </Typography>
+          </Box>
+          
+          <Button 
+            variant="contained" 
+            onClick={handleRefresh}
+            startIcon={<RefreshIcon />}
+            sx={{
+              backgroundColor: 'rgba(255, 255, 255, 0.2)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              color: 'white',
+              fontWeight: 600,
+              px: 3,
+              py: 1,
+              borderRadius: 2,
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
+              },
+              transition: 'all 0.2s ease-in-out'
+            }}
+          >
+            Atualizar
+          </Button>
+        </Box>
+      </Paper>
+
+      {/* Container da tabela centralizado */}
+      <Paper elevation={3} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+        <TableContainer>
         <Table stickyHeader>
           <TableHead>
             <TableRow>
+              {/* Cabeçalho SKU */}
               <TableCell 
                 align="center"
                 sx={{
-                  fontWeight: 'bold',
-                  backgroundColor: theme.palette.primary.main,
+                  fontWeight: 700,
+                  backgroundColor: '#667eea',
                   color: 'white',
-                  fontSize: '0.95rem'
+                  fontSize: '0.95rem',
+                  py: 2,
+                  borderBottom: 'none'
                 }}
               >
-                Imagem
+                📋 SKU
               </TableCell>
+              
+              {/* Cabeçalho Nome */}
               <TableCell 
-                align="center"
+                align="left"
                 sx={{
-                  fontWeight: 'bold',
-                  backgroundColor: theme.palette.primary.main,
+                  fontWeight: 700,
+                  backgroundColor: '#667eea',
                   color: 'white',
-                  fontSize: '0.95rem'
+                  fontSize: '0.95rem',
+                  py: 2,
+                  borderBottom: 'none'
                 }}
               >
-                SKU
+                🏷️ Nome do Produto
               </TableCell>
+              
+              {/* Cabeçalho CMV */}
               <TableCell 
                 align="center"
                 sx={{
-                  fontWeight: 'bold',
-                  backgroundColor: theme.palette.primary.main,
+                  fontWeight: 700,
+                  backgroundColor: '#667eea',
                   color: 'white',
-                  fontSize: '0.95rem'
+                  fontSize: '0.95rem',
+                  py: 2,
+                  borderBottom: 'none'
                 }}
               >
-                Nome
+                💰 CMV Atual
               </TableCell>
+              
+              {/* Cabeçalho Estoque */}
               <TableCell 
                 align="center"
                 sx={{
-                  fontWeight: 'bold',
-                  backgroundColor: theme.palette.primary.main,
+                  fontWeight: 700,
+                  backgroundColor: '#667eea',
                   color: 'white',
-                  fontSize: '0.95rem'
+                  fontSize: '0.95rem',
+                  py: 2,
+                  borderBottom: 'none'
                 }}
               >
-                CMV Atual
+                📦 Estoque
               </TableCell>
+              
+              {/* Cabeçalho Ações */}
               <TableCell 
                 align="center"
                 sx={{
-                  fontWeight: 'bold',
-                  backgroundColor: theme.palette.primary.main,
+                  fontWeight: 700,
+                  backgroundColor: '#667eea',
                   color: 'white',
-                  fontSize: '0.95rem'
+                  fontSize: '0.95rem',
+                  py: 2,
+                  borderBottom: 'none'
                 }}
               >
-                Estoque
-              </TableCell>
-              <TableCell 
-                align="center"
-                sx={{
-                  fontWeight: 'bold',
-                  backgroundColor: theme.palette.primary.main,
-                  color: 'white',
-                  fontSize: '0.95rem'
-                }}
-              >
-                Status
-              </TableCell>
-              <TableCell 
-                align="center"
-                sx={{
-                  fontWeight: 'bold',
-                  backgroundColor: theme.palette.primary.main,
-                  color: 'white',
-                  fontSize: '0.95rem'
-                }}
-              >
-                Ações
+                ⚙️ Ações
               </TableCell>
             </TableRow>
           </TableHead>
+          
           <TableBody>
             {produtos
               .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
               .map((produto) => (
                 <TableRow 
-                  key={produto.id} 
+                  key={produto.sku} 
                   hover
                   sx={{
                     '&:nth-of-type(odd)': {
-                      backgroundColor: theme.palette.action.hover,
+                      backgroundColor: 'rgba(102, 126, 234, 0.04)',
                     },
+                    '&:hover': {
+                      backgroundColor: 'rgba(102, 126, 234, 0.08)',
+                      transform: 'scale(1.001)',
+                      transition: 'all 0.2s ease-in-out'
+                    },
+                    '& .MuiTableCell-root': {
+                      borderBottom: '1px solid rgba(224, 224, 224, 0.5)',
+                      py: 1.5
+                    }
                   }}
                 >
+                  {/* Coluna SKU */}
                   <TableCell align="center">
-                    {produto.imagemUrl ? (
-                      <Box
-                        component="img"
-                        src={produto.imagemUrl}
-                        alt={produto.nome}
-                        sx={{
-                          width: 50,
-                          height: 50,
-                          objectFit: 'contain',
-                          borderRadius: 1
+                    <Typography variant="body2" fontWeight="bold">
+                      {produto.sku}
+                    </Typography>
+                  </TableCell>
+                  
+                  {/* Coluna Nome */}
+                  <TableCell align="left">
+                    <Typography variant="body2">
+                      {produto.nome}
+                    </Typography>
+                  </TableCell>
+                  
+                  {/* Coluna CMV (editável) */}
+                  <TableCell align="center">
+                    {editingProduct === produto.sku ? (
+                      // Modo de edição
+                      <TextField
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        type="number"
+                        size="small"
+                        inputProps={{ 
+                          min: 0, 
+                          step: 0.01,
+                          style: { textAlign: 'center' }
                         }}
+                        sx={{ width: 100 }}
+                        autoFocus
                       />
                     ) : (
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: 50,
-                          height: 50,
-                          border: '1px dashed',
-                          borderColor: 'divider',
-                          borderRadius: 1,
-                          fontSize: '0.7rem',
-                          textAlign: 'center',
-                          lineHeight: 1.2,
-                          margin: '0 auto'
-                        }}
-                      >
-                        Coloque a imagem
+                      // Modo de visualização
+                      <Typography variant="body2" fontWeight="bold" color="primary">
+                        {formatarMoeda(produto.cmv_atual)}
                       </Typography>
                     )}
                   </TableCell>
-                  <TableCell align="center">{produto.sku}</TableCell>
-                  <TableCell align="center">{produto.nome}</TableCell>
-                  <TableCell align="center">
-                    {Number(produto.cmv).toLocaleString('pt-BR', { 
-                      style: 'currency', 
-                      currency: 'BRL' 
-                    })}
-                  </TableCell>
-                  <TableCell align="center">{produto.estoque}</TableCell>
+                  
+                  {/* Coluna Estoque */}
                   <TableCell align="center">
                     <Chip 
-                      label={produto.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                      label={produto.estoque}
                       size="small"
-                      color={produto.status === 'ativo' ? 'success' : 'error'}
-                      sx={{ minWidth: 80 }}
+                      color={produto.estoque > 0 ? 'success' : 'error'}
+                      sx={{ minWidth: 60 }}
                     />
                   </TableCell>
+                  
+                  {/* Coluna Ações */}
                   <TableCell align="center">
                     <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
-                      <Tooltip title="Editar">
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handleEdit(produto)}
-                          sx={{
-                            color: theme.palette.primary.main,
-                            '&:hover': {
-                              backgroundColor: theme.palette.primary.lighter,
-                            }
-                          }}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Excluir">
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handleDelete(produto)}
-                          sx={{
-                            color: theme.palette.error.main,
-                            '&:hover': {
-                              backgroundColor: theme.palette.error.lighter,
-                            }
-                          }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                      {editingProduct === produto.sku ? (
+                        // Botões de salvar/cancelar durante edição
+                        <>
+                          <Tooltip title="Salvar">
+                            <IconButton 
+                              size="small" 
+                              onClick={handleSaveEdit}
+                              disabled={saving}
+                              sx={{
+                                color: theme.palette.success.main,
+                                '&:hover': {
+                                  backgroundColor: theme.palette.success.lighter,
+                                }
+                              }}
+                            >
+                              <SaveIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Cancelar">
+                            <IconButton 
+                              size="small" 
+                              onClick={handleCancelEdit}
+                              disabled={saving}
+                              sx={{
+                                color: theme.palette.error.main,
+                                '&:hover': {
+                                  backgroundColor: theme.palette.error.lighter,
+                                }
+                              }}
+                            >
+                              <CancelIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      ) : (
+                        // Botão de editar quando não está editando
+                        <Tooltip title="Editar CMV">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleStartEdit(produto)}
+                            sx={{
+                              color: theme.palette.primary.main,
+                              '&:hover': {
+                                backgroundColor: theme.palette.primary.lighter,
+                              }
+                            }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </Box>
                   </TableCell>
                 </TableRow>
             ))}
           </TableBody>
         </Table>
-      </TableContainer>
-      <TablePagination
-        rowsPerPageOptions={[10, 25, 50]}
-        component="div"
-        count={produtos.length}
-        rowsPerPage={rowsPerPage}
-        page={page}
-        onPageChange={handleChangePage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-        labelRowsPerPage="Itens por página"
-        sx={{
-          borderTop: `1px solid ${theme.palette.divider}`,
-          bgcolor: 'background.paper'
-        }}
-      />
+        </TableContainer>
+        
+        {/* Paginação melhorada */}
+        <TablePagination
+          rowsPerPageOptions={[10, 25, 50, 100]}
+          component="div"
+          count={produtos.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          labelRowsPerPage="Itens por página"
+          sx={{
+            borderTop: `1px solid ${theme.palette.divider}`,
+            bgcolor: 'background.paper',
+            '& .MuiTablePagination-toolbar': {
+              padding: { xs: 1, sm: 2 }
+            },
+            '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+              fontSize: '0.875rem',
+              fontWeight: 500
+            }
+          }}
+        />
+      </Paper>
 
-      {/* Formulário de Edição/Criação */}
-      <ProdutoForm
-        open={formOpen}
-        onClose={() => {
-          setFormOpen(false);
-          setSelectedProduto(null);
-        }}
-        onSubmit={handleFormSubmit}
-        produto={selectedProduto}
-      />
-
-      {/* Diálogo de Confirmação de Exclusão */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
+      {/* Snackbar para feedback */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <WarningIcon color="warning" />
-          Confirmar Exclusão
-        </DialogTitle>
-        <DialogContent>
-          <Typography>
-            Tem certeza que deseja excluir o produto "{produtoToDelete?.nome}"?
-            Esta ação não poderá ser desfeita.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>
-            Cancelar
-          </Button>
-          <Button 
-            onClick={confirmDelete} 
-            variant="contained" 
-            color="error"
-          >
-            Excluir
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </>
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
-} 
+}

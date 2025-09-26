@@ -1,14 +1,18 @@
-import gspread
+import requests
 import psycopg2
-from oauth2client.service_account import ServiceAccountCredentials
-from datetime import datetime
-import time
 import logging
-from config import DATABASE_CONFIG, GOOGLE_SHEETS_CREDENTIALS, PLANILHA_NOME_MAGALU, ABA_NOME_MAGALU
+from datetime import datetime
+from config import DATABASE_CONFIG
 
-# Configurar logging
+# Adicione suas credenciais Magalu aqui ou use variáveis de ambiente
+CLIENT_ID = "SEU_CLIENT_ID"
+CLIENT_SECRET = "SEU_CLIENT_SECRET"
+REFRESH_TOKEN = "SEU_REFRESH_TOKEN"
+TOKEN_URL = "https://auto-seg-idp.luizalabs.com/oauth/token"
+ORDERS_URL = "https://api.magalu.com/orders/v1/orders"
+
 logging.basicConfig(
-    filename='atualizacao_vendas_magalu.log',
+    filename='atualizacao_vendas_magalu_api.log',
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
@@ -22,113 +26,107 @@ def conectar_banco():
         print(f"Erro ao conectar ao banco de dados: {e}")
         exit()
 
-def conectar_planilha():
-    try:
-        scope = ['https://spreadsheets.google.com/feeds',
-                 'https://www.googleapis.com/auth/drive']
+def refresh_access_token():
+    data = {
+        "grant_type": "refresh_token",
+        "refresh_token": REFRESH_TOKEN,
+        "client_id": CLIENT_ID,
+        "client_secret": CLIENT_SECRET
+    }
+    resp = requests.post(TOKEN_URL, data=data)
+    resp.raise_for_status()
+    tokens = resp.json()
+    return tokens["access_token"]
 
-        creds = ServiceAccountCredentials.from_json_keyfile_name(
-            GOOGLE_SHEETS_CREDENTIALS, scope)
-        client = gspread.authorize(creds)
+def fetch_orders(access_token, limit=50):
+    headers = {"Authorization": f"Bearer {access_token}"}
+    url = ORDERS_URL
+    params = {"limit": limit, "_offset": 0}
+    all_orders = []
 
-        planilha = client.open(PLANILHA_NOME_MAGALU)
-        aba = planilha.worksheet(ABA_NOME_MAGALU)
+    while True:
+        r = requests.get(url, headers=headers, params=params)
+        r.raise_for_status()
+        data = r.json()
+        all_orders.extend(data.get("results", []))
 
-        print("Conexão com a planilha estabelecida com sucesso!")
-        return aba
-    except Exception as e:
-        print(f"Erro ao conectar à planilha: {e}")
-        exit()
+        next_link = data.get("links", {}).get("next")
+        if not next_link:
+            break
+        if next_link.startswith("?"):
+            url = ORDERS_URL + next_link
+            params = None
+        else:
+            url = next_link
+            params = None
 
-def tratar_valor(valor, tipo=float, default=0):
-    try:
-        if not valor:
-            return default
+    return all_orders
 
-        if tipo == float:
-            valor_limpo = str(valor).replace('R$', '').replace(' ', '')
-            if '%' in valor_limpo:  # Trata valores percentuais
-                valor_limpo = valor_limpo.replace('%', '').replace(',', '.')
-                return float(valor_limpo) / 100*100  # Converte de percentual para decimal
-            return float(valor_limpo.replace('.', '').replace(',', '.'))
+def extract_order_data(orders):
+    rows = []
+    for order in orders:
+        order_id = order.get("id")
+        purchased_at = order.get("purchased_at")
+        amounts = order.get("amounts", {})
+        discount_total = (amounts.get("discount") or {}).get("total")
+        freight_total = (amounts.get("freight") or {}).get("total")
+        commission_total = (amounts.get("commission") or {}).get("total")
 
-        elif tipo == int:
-            return int(str(valor).replace('.', ''))
+        for delivery in order.get("deliveries", []):
+            for item in delivery.get("items", []):
+                info = item.get("info", {})
+                sku = info.get("sku")
+                produto = info.get("name")
+                unidades = item.get("quantity", 0)
+                unit_price = (item.get("unit_price") or {}).get("value", 0.0)
+                valor_venda = unidades * unit_price
 
-        elif tipo == datetime:
-            return datetime.strptime(valor, '%d/%m/%Y %H:%M:%S')  # Formato específico da Magalu
+                rows.append({
+                    "pedido": order_id,
+                    "marketplace": "magalu",
+                    "data": purchased_at,
+                    "sku": sku,
+                    "unidades": unidades,
+                    "valor_vendido": valor_venda,
+                    "comissao_magalu": commission_total,
+                    "frete_total": freight_total,
+                    "desconto_total": discount_total
+                })
+    return rows
 
-        return str(valor).strip()
-    except Exception as e:
-        print(f"Erro ao tratar valor: '{valor}' - {e}")
-        return default
-
-def inserir_dados_no_banco(dados_planilha):
+def inserir_dados_no_banco(dados):
     try:
         conn = conectar_banco()
         cursor = conn.cursor()
-
-        for linha in dados_planilha[1:]:
+        for linha in dados:
             try:
-                if not linha[1]:  # Verifica se o número do pedido está vazio
-                    continue
-
-                marketplace = linha[0]  # A - MARKETPLACE
-                pedido = tratar_valor(linha[1], tipo=str)  # B - Número do Pedido
-                data_hora = tratar_valor(linha[2], tipo=datetime)  # C - Data/Hora do Pedido
-                sku = tratar_valor(linha[3], tipo=str)  # D - SKU
-                quantidade = tratar_valor(linha[4], tipo=int)  # E - QUANTIDADE
-                valor_comprado = tratar_valor(linha[5], tipo=float)  # F - Valor Comprado
-                valor_pedidos = tratar_valor(linha[6], tipo=float)  # G - Valor dos pedidos
-                imposto = tratar_valor(linha[7], tipo=float)  # H - Imposto
-                frete = tratar_valor(linha[8], tipo=float)  # I - FRETE
-                descontos = tratar_valor(linha[9], tipo=float)  # J - Descontos
-                valor_liquido = tratar_valor(linha[10], tipo=float)  # K - Valor Líquido Geral
-                lucro = tratar_valor(linha[11], tipo=float)  # L - LUCRO
-                markup = tratar_valor(linha[12], tipo=float)  # M - MARKUP
-                margem_lucro = tratar_valor(linha[13], tipo=float)  # N - MARGEM DE LUCRO
-                tipo_envio = tratar_valor(linha[14], tipo=str)  # O - TIPO DE ENVIO
-
-                # Realiza UPSERT para evitar duplicatas
                 cursor.execute("""
                     INSERT INTO vendas_magalu (
                         pedido, marketplace, data, sku, unidades,
-                        valor_comprado, valor_vendido, imposto, frete, descontos,
-                        valor_liquido, lucro, markup, margem_lucro, tipo_envio
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        valor_vendido, comissao_magalu, frete, descontos
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (pedido)
                     DO UPDATE SET
                         marketplace = EXCLUDED.marketplace,
                         data = EXCLUDED.data,
                         sku = EXCLUDED.sku,
                         unidades = EXCLUDED.unidades,
-                        valor_comprado = EXCLUDED.valor_comprado,
                         valor_vendido = EXCLUDED.valor_vendido,
-                        imposto = EXCLUDED.imposto,
+                        comissao_magalu = EXCLUDED.comissao_magalu,
                         frete = EXCLUDED.frete,
-                        descontos = EXCLUDED.descontos,
-                        valor_liquido = EXCLUDED.valor_liquido,
-                        lucro = EXCLUDED.lucro,
-                        markup = EXCLUDED.markup,
-                        margem_lucro = EXCLUDED.margem_lucro,
-                        tipo_envio = EXCLUDED.tipo_envio
+                        descontos = EXCLUDED.descontos
                 """, (
-                    pedido, marketplace, data_hora, sku, quantidade,
-                    valor_comprado, valor_pedidos, imposto, frete, descontos,
-                    valor_liquido, lucro, markup, margem_lucro, tipo_envio
+                    linha["pedido"], linha["marketplace"], linha["data"], linha["sku"], linha["unidades"],
+                    linha["valor_vendido"], linha["comissao_magalu"], linha["frete_total"], linha["desconto_total"]
                 ))
-
-                print(f"Inserido ou atualizado pedido Magalu: {pedido} - SKU: {sku}")
-
+                print(f"Inserido ou atualizado pedido Magalu: {linha['pedido']} - SKU: {linha['sku']}")
             except Exception as e:
                 print(f"Erro ao processar linha: {e}")
                 continue
-
         conn.commit()
         cursor.close()
         conn.close()
-        print(f"Total de dados processados: {len(dados_planilha)-1}")
-
+        print(f"Total de dados processados: {len(dados)}")
     except Exception as e:
         print(f"Erro ao inserir dados no banco: {e}")
 
@@ -138,34 +136,14 @@ def notificar_atualizacao():
 
 def main():
     try:
-        aba = conectar_planilha()
-        dados_planilha = aba.get_all_values()
-
-        inserir_dados_no_banco(dados_planilha)
+        token = refresh_access_token()
+        orders = fetch_orders(token)
+        dados = extract_order_data(orders)
+        inserir_dados_no_banco(dados)
         notificar_atualizacao()
-
     except Exception as e:
         print(f"Erro na execução principal: {e}")
         logging.error(f"Erro na execução principal: {e}")
 
-def executar_com_intervalo(intervalo_minutos=10):
-    logging.info(f"Iniciando processo de atualização automática a cada {intervalo_minutos} minutos")
-    
-    while True:
-        try:
-            main()
-            # Aguarda o intervalo especificado (em segundos)
-            time.sleep(intervalo_minutos * 60)
-        except KeyboardInterrupt:
-            logging.info("Processo interrompido pelo usuário")
-            break
-        except Exception as e:
-            logging.error(f"Erro no processo de atualização: {e}")
-            # Aguarda 5 minutos antes de tentar novamente em caso de erro
-            time.sleep(300)
 if __name__ == "__main__":
-    # Para executar uma única vez:
-    # main()
-    
-    # Para executar continuamente a cada hora:
-    executar_com_intervalo(10)  # 10 minutos
+    main()

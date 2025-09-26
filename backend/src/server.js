@@ -41,7 +41,7 @@ const relatoriosRoutes = require('./routes/relatorios');
 app.use('/api/vendas', vendasRoutes);
 app.use('/api/estoque', estoqueRoutes);
 app.use('/api/metas', metasRoutes);
-app.use('/', produtosRoutes);
+app.use('/api/produtos', produtosRoutes);
 app.use('/api/relatorios', relatoriosRoutes);
 
 // Rota de teste para verificar se o servidor está rodando
