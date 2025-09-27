@@ -7,7 +7,7 @@ import MercadoLivre from './pages/MercadoLivre';
 import MagazineLuiza from './pages/MagazineLuiza';
 import Estoque from './pages/Estoque';
 import Metas from './pages/Metas';
-import Produtos from './pages/Produtos';
+// import Produtos from './pages/Produtos'; // PÁGINA OCULTA - Trabalhando apenas com Estoque
 import Alertas from './pages/Alertas';
 import Configuracoes from './pages/Configuracoes';
 import Compras from './pages/Compras';
@@ -23,7 +23,7 @@ const router = createBrowserRouter([
       { path: '/compras', element: <Compras /> },
       { path: '/estoque', element: <Estoque /> },
       { path: '/metas', element: <Metas /> },
-      { path: '/produtos', element: <Produtos /> },
+      // { path: '/produtos', element: <Produtos /> }, // ROTA OCULTA - Trabalhando apenas com Estoque
       { path: '/alertas', element: <Alertas /> },
       { path: '/configuracoes', element: <Configuracoes /> }
     ]

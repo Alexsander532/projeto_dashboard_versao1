@@ -4,7 +4,7 @@ import MercadoLivre from './pages/MercadoLivre';
 import MagazineLuiza from './pages/MagazineLuiza';
 import Estoque from './pages/Estoque';
 import Metas from './pages/Metas';
-import Produtos from './pages/Produtos';
+// import Produtos from './pages/Produtos'; // PÁGINA OCULTA - Trabalhando apenas com Estoque
 import Compras from './pages/Compras';
 import Alertas from './pages/Alertas';
 import Configuracoes from './pages/Configuracoes';
@@ -17,7 +17,7 @@ function AppRoutes() {
       <Route path="/magazineluiza" element={<MagazineLuiza />} />
       <Route path="/estoque" element={<Estoque />} />
       <Route path="/metas" element={<Metas />} />
-      <Route path="/produtos" element={<Produtos />} />
+      {/* <Route path="/produtos" element={<Produtos />} /> */} {/* ROTA OCULTA - Trabalhando apenas com Estoque */}
       <Route path="/compras" element={<Compras />} />
       <Route path="/alertas" element={<Alertas />} />
       <Route path="/configuracoes" element={<Configuracoes />} />
@@ -25,4 +25,4 @@ function AppRoutes() {
   );
 }
 
-export default AppRoutes; 
+export default AppRoutes;

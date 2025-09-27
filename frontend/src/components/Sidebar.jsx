@@ -31,7 +31,7 @@ export default function Sidebar() {
     { text: 'Magazine Luiza', icon: <StoreIcon />, path: '/magazine-luiza' },
     { text: 'Estoque', icon: <InventoryIcon />, path: '/estoque' },
     { text: 'Metas', icon: <AssessmentIcon />, path: '/metas' },
-    { text: 'Produtos', icon: <ShoppingBasketIcon />, path: '/produtos' },
+    // { text: 'Produtos', icon: <ShoppingBasketIcon />, path: '/produtos' }, // ITEM OCULTO - Trabalhando apenas com Estoque
     { text: 'Compras', icon: <LocalShippingIcon />, path: '/compras' },
     { text: 'Alertas', icon: <NotificationsIcon />, path: '/alertas' },
     { text: 'Configurações', icon: <SettingsIcon />, path: '/configuracoes' },
