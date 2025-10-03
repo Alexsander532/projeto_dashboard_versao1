@@ -11,6 +11,7 @@ import {
   Switch,
   useTheme,
   Tooltip,
+  Divider,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -19,10 +20,13 @@ import {
   Settings as SettingsIcon,
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
+  Logout as LogoutIcon,
 } from '@mui/icons-material';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Navbar({ onToggleSidebar, darkMode, onToggleDarkMode }) {
   const theme = useTheme();
+  const { user, logout } = useAuth();
   const [anchorEl, setAnchorEl] = useState(null);
   const [notificationsAnchorEl, setNotificationsAnchorEl] = useState(null);
 
@@ -37,6 +41,11 @@ export default function Navbar({ onToggleSidebar, darkMode, onToggleDarkMode }) 
   const handleMenuClose = () => {
     setAnchorEl(null);
     setNotificationsAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    logout();
+    handleMenuClose();
   };
 
   // Dados fictícios de notificações
@@ -124,10 +133,36 @@ export default function Navbar({ onToggleSidebar, darkMode, onToggleDarkMode }) 
           onClose={handleMenuClose}
           transformOrigin={{ horizontal: 'right', vertical: 'top' }}
           anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+          PaperProps={{
+            sx: {
+              width: 200,
+            }
+          }}
         >
-          <MenuItem onClick={handleMenuClose}>Meu Perfil</MenuItem>
-          <MenuItem onClick={handleMenuClose}>Configurações</MenuItem>
-          <MenuItem onClick={handleMenuClose}>Sair</MenuItem>
+          <MenuItem disabled>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+              <Typography variant="subtitle2" fontWeight="bold">
+                {user?.name || 'Usuário'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {user?.login || 'Login'}
+              </Typography>
+            </Box>
+          </MenuItem>
+          <Divider />
+          <MenuItem onClick={handleMenuClose}>
+            <AccountCircle sx={{ mr: 1 }} />
+            Meu Perfil
+          </MenuItem>
+          <MenuItem onClick={handleMenuClose}>
+            <SettingsIcon sx={{ mr: 1 }} />
+            Configurações
+          </MenuItem>
+          <Divider />
+          <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
+            <LogoutIcon sx={{ mr: 1 }} />
+            Sair
+          </MenuItem>
         </Menu>
 
         {/* Notifications Menu */}

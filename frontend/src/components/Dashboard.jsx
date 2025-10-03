@@ -30,10 +30,11 @@ import Sidebar from './Sidebar';
 import DashboardCharts from './DashboardCharts';
 import MetricCard from './MetricCard';
 import { fetchVendasML } from '../services/vendasMLService';
+import { fetchVendasMagalu, fetchMetricasMagalu } from '../services/vendasMagaluService';
 import VendasTable from './vendasTable';
 import api from '../config/api';
 
-export default function Dashboard() {
+export default function Dashboard({ marketplace = 'mercadolivre' }) {
   const theme = useTheme();
   const { isDark, setIsDark } = useAppTheme();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -66,13 +67,16 @@ export default function Dashboard() {
     if (dataInicial && dataFinal) {
     carregarDados();
     }
-  }, [dataInicial, dataFinal, skuSelecionado]);
+  }, [dataInicial, dataFinal, skuSelecionado, marketplace]);
 
   const carregarDados = async () => {
     try {
       setLoading(true);
       
-      const todosOsDados = await fetchVendasML({});
+      // Usa o serviço correto baseado no marketplace
+      const todosOsDados = marketplace === 'magalu' 
+        ? await fetchVendasMagalu({})
+        : await fetchVendasML({});
       setDadosVendas(todosOsDados);
       
       // Filtra os dados do período
@@ -136,7 +140,7 @@ export default function Dashboard() {
       });
 
       const vendasAnteriores = dadosPeriodoAnterior.reduce((total, venda) => 
-        total + (Number(venda.valor_vendido) || 0), 0);
+        total + (Number(venda.valorVendido) || 0), 0);
 
       const crescimentoPeriodo = vendasAnteriores > 0 
         ? ((metricas.vendasTotais - vendasAnteriores) / vendasAnteriores) * 100 
@@ -174,7 +178,9 @@ export default function Dashboard() {
 
   const fetchVendas = async () => {
     try {
-      const response = await api.get('/api/vendas');
+      // Usa o endpoint correto baseado no marketplace
+      const endpoint = marketplace === 'magalu' ? '/api/vendas-magalu' : '/api/vendas';
+      const response = await api.get(endpoint);
       setVendas(response.data);
     } catch (error) {
       console.error('Erro ao buscar vendas:', error);
@@ -183,7 +189,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchVendas();
-  }, []);
+  }, [marketplace]);
 
   return (
     <Box sx={{ 
@@ -222,7 +228,7 @@ export default function Dashboard() {
           mb: 3,
         }}>
           <Typography variant="h4" sx={{ fontWeight: 'bold', color: theme.palette.text.primary }}>
-            Mercado Livre
+            {marketplace === 'magalu' ? 'Magazine Luiza' : 'Mercado Livre'}
           </Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button

@@ -164,11 +164,10 @@ export default function VendasTable({ vendas, onVendaUpdate }) {
       valor_vendido: venda.valor_vendido || 0,
       taxas: venda.taxas || 0,
       frete: venda.frete || 0,
-      ctl: venda.ctl || 0,
+
       valor_liquido: venda.valor_liquido || 0,
       lucro: venda.lucro || 0,
-      margem_lucro: venda.margem_lucro || 0,
-          envio: venda.envio || 'FULL'
+      margem_lucro: venda.margem_lucro || 0
     }))
     .sort((a, b) => b.dataObj - a.dataObj);
 
@@ -186,7 +185,7 @@ export default function VendasTable({ vendas, onVendaUpdate }) {
     })
   };
 
-  const editableCells = ['unidades', 'valor_comprado', 'valor_vendido', 'taxas', 'frete', 'ctl'];
+  const editableCells = ['unidades', 'valor_comprado', 'valor_vendido', 'taxas', 'frete'];
 
   const handleStartEdit = (pedido, campo, valor) => {
     setEditingCell({ pedido, campo });
@@ -263,12 +262,10 @@ export default function VendasTable({ vendas, onVendaUpdate }) {
                 <StyledTableCell className="header">Comprado</StyledTableCell>
                 <StyledTableCell className="header">Vendido</StyledTableCell>
                 <StyledTableCell className="header">Taxas</StyledTableCell>
-                <StyledTableCell className="header">Frete</StyledTableCell>
-                <StyledTableCell className="header">CTL</StyledTableCell>
-                <StyledTableCell className="header">Valor Líquido</StyledTableCell>
+            <StyledTableCell className="header">Frete</StyledTableCell>
+            <StyledTableCell className="header">Valor Líquido</StyledTableCell>
                 <StyledTableCell className="header">Lucro</StyledTableCell>
                 <StyledTableCell className="header">Margem</StyledTableCell>
-                <StyledTableCell className="header">Envio</StyledTableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -406,30 +403,6 @@ export default function VendasTable({ vendas, onVendaUpdate }) {
                         </Box>
                       )}
                     </StyledTableCell>
-                    <StyledTableCell>
-                      {editingCell?.pedido === venda.pedido && editingCell?.campo === 'ctl' ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <TextField
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            size="small"
-                            type="number"
-                            autoFocus
-                            sx={{ width: '100px' }}
-                          />
-                          <IconButton size="small" onClick={() => handleSaveEdit(venda.pedido, 'ctl')}>
-                            <SaveIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" onClick={() => setEditingCell(null)}>
-                            <CloseIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      ) : (
-                        <Box onClick={() => handleStartEdit(venda.pedido, 'ctl', venda.ctl)}>
-                          {formatarValor(venda.ctl)}
-                        </Box>
-                      )}
-                    </StyledTableCell>
                     <StyledTableCell>{formatarValor(venda.valor_liquido)}</StyledTableCell>
                     <StyledTableCell>
                       <Typography 
@@ -446,13 +419,6 @@ export default function VendasTable({ vendas, onVendaUpdate }) {
                       >
                         {formatarPorcentagem(venda.margem_lucro)}%
                       </Typography>
-                    </StyledTableCell>
-                    <StyledTableCell>
-                      <EnvioChip
-                        label={venda.envio}
-                        type={venda.envio}
-                        size="small"
-                      />
                     </StyledTableCell>
                   </AnimatedTableRow>
             ))}

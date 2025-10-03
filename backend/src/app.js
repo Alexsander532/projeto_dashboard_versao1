@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const vendasRoutes = require('./routes/vendas');
+const vendasMagaluRoutes = require('./routes/vendasMagalu');
 const estoqueRoutes = require('./routes/estoque');
 const metasRoutes = require('./routes/metas');
 
@@ -17,6 +18,7 @@ app.use(express.json());
 
 // Rotas
 app.use('/api', vendasRoutes);
+app.use('/api/vendas-magalu', vendasMagaluRoutes);
 app.use('/api/estoque', estoqueRoutes);
 app.use('/api/metas', metasRoutes);
 
@@ -34,4 +36,4 @@ app.use((err, req, res, next) => {
   });
 });
 
-module.exports = app; 
+module.exports = app;
