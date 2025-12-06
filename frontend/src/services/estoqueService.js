@@ -15,20 +15,24 @@ export const fetchEstoque = async () => {
         return response.data.map(item => ({
             id: Number(item.id),
             sku: item.sku,
-            produto: item.descricao,
-            estoque: Number(item.estoque) || 0,
-            minimo: Number(item.minimo) || 0,
-            precoCompra: Number(item.cmv) || 0,
-            valorLiquidoMedio: Number(item.valor_liquido) || 0,
-            valorLiquidoTotal: (Number(item.estoque) || 0) * (Number(item.cmv) || 0),
-            mediaVendas: Number(item.media_vendas) || 0,
-            vendasQuinzenais: Number(item.vendas_quinzenais) || 0,
-            previsaoDias: item.previsao_dias ? Number(item.previsao_dias) : null,
-            totalVendas: Number(item.total_vendas) || 0,
-            ultimaVenda: item.ultima_venda,
-            status: calcularStatus(Number(item.estoque), Number(item.minimo)),
+            produto: item.sku, // Usar SKU como nome do produto
+            estoque: Number(item.total) || 0, // IMPORTANTE: Mapear 'total' como 'estoque'
+            minimo: 10, // Valor padrão
+            precoCompra: Number(item.preco_compra) || 0, // Vem do banco de dados
+            valorLiquidoMedio: 0, // Valor padrão
+            valorLiquidoTotal: (Number(item.total) || 0) * (Number(item.preco_compra) || 0), // Calculado
+            mediaVendas: 0, // Valor padrão
+            vendasQuinzenais: 0, // Valor padrão
+            previsaoDias: null, // Valor padrão
+            totalVendas: 0, // Valor padrão
+            ultimaVenda: item.updated_at,
+            status: calcularStatus(Number(item.total), 10), // total mapeado como estoque
             created_at: item.created_at,
-            updated_at: item.updated_at
+            updated_at: item.updated_at,
+            // Campos adicionais do Supabase
+            bling: Number(item.bling) || 0,
+            full_ml: Number(item.full_ml) || 0,
+            magalu: Number(item.magalu) || 0,
         }));
     } catch (error) {
         console.error('Erro ao buscar estoque:', error);
@@ -40,9 +44,9 @@ export const atualizarEstoque = async (sku, produto) => {
     try {
         const dadosParaEnviar = {
             produto: produto.produto,
-            estoque: Number(produto.estoque),
+            total: Number(produto.estoque), // Mapear estoque para total (campo do BD)
+            preco_compra: Number(produto.precoCompra), // Novo campo
             minimo: Number(produto.minimo),
-            precoCompra: Number(produto.precoCompra),
             valorLiquidoMedio: Number(produto.valorLiquidoMedio),
             status: produto.status
         };

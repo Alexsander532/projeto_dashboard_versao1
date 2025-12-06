@@ -32,6 +32,7 @@ app.use((req, res, next) => {
 
 // Importar rotas
 const vendasRoutes = require('./routes/vendas');
+const vendasMLRoutes = require('./routes/vendasML');
 const estoqueRoutes = require('./routes/estoque');
 const metasRoutes = require('./routes/metas');
 const produtosRoutes = require('./routes/produtos');
@@ -39,6 +40,7 @@ const relatoriosRoutes = require('./routes/relatorios');
 
 // Registrar rotas
 app.use('/api/vendas', vendasRoutes);
+app.use('/api/vendas-ml', vendasMLRoutes);
 app.use('/api/estoque', estoqueRoutes);
 app.use('/api/metas', metasRoutes);
 app.use('/api/produtos', produtosRoutes);
@@ -64,6 +66,7 @@ const startServer = async () => {
     // Testar conexão com o banco
     await pool.query('SELECT NOW()');
     console.log('Conexão com o banco de dados estabelecida');
+    console.log('✅ Supabase conectado com sucesso para o módulo de estoque');
 
     // Iniciar o servidor
     app.listen(PORT, () => {

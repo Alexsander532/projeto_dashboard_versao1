@@ -54,13 +54,20 @@ export default function Dashboard({ marketplace = 'mercadolivre' }) {
   const [skuSelecionado, setSkuSelecionado] = useState('todos');
   const [skus, setSkus] = useState([]);
   const [dadosVendas, setDadosVendas] = useState([]);
-  const [vendas, setVendas] = useState([]);
 
   useEffect(() => {
     const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
-    setDataFinal(new Date());
-    setDataInicial(hoje);
+    
+    // Definir data inicial como o primeiro dia do mês atual
+    const primeiroDiaDoMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    primeiroDiaDoMes.setHours(0, 0, 0, 0);
+    
+    // Data final é hoje
+    const dataAtual = new Date();
+    dataAtual.setHours(23, 59, 59, 999);
+    
+    setDataInicial(primeiroDiaDoMes);
+    setDataFinal(dataAtual);
   }, []);
 
   useEffect(() => {
@@ -79,20 +86,10 @@ export default function Dashboard({ marketplace = 'mercadolivre' }) {
         : await fetchVendasML({});
       setDadosVendas(todosOsDados);
       
-      // Filtra os dados do período
-      const dadosFiltrados = todosOsDados.filter(venda => {
-        const dataVenda = new Date(venda.data);
-        const dataInicialNorm = new Date(dataInicial);
-        const dataFinalNorm = new Date(dataFinal);
-        
-        dataVenda.setHours(0, 0, 0, 0);
-        dataInicialNorm.setHours(0, 0, 0, 0);
-        dataFinalNorm.setHours(23, 59, 59, 999);
+      // NÃO FILTRAR POR DATA - mostrar todos os dados da tabela
+      const dadosParaCalcular = todosOsDados;
 
-        return dataVenda >= dataInicialNorm && dataVenda <= dataFinalNorm;
-      });
-
-      if (dadosFiltrados.length === 0) {
+      if (dadosParaCalcular.length === 0) {
         setMetricas({
           vendasTotais: 0,
           despesas: 0,
@@ -105,8 +102,8 @@ export default function Dashboard({ marketplace = 'mercadolivre' }) {
         return;
       }
 
-      // Calcula as métricas
-      const metricas = dadosFiltrados.reduce((acc, venda) => {
+      // Calcula as métricas com TODOS os dados
+      const metricas = dadosParaCalcular.reduce((acc, venda) => {
         // Pega os valores diretamente do banco
         const valorVendido = Number(venda.valorVendido) || 0;
         const lucro = Number(venda.lucro) || 0;
@@ -124,27 +121,18 @@ export default function Dashboard({ marketplace = 'mercadolivre' }) {
         unidadesVendidas: 0
       });
 
-      // Calcula médias diárias
-      const dias = Math.max(1, Math.ceil((dataFinal - dataInicial) / (1000 * 60 * 60 * 24)));
+      // Calcula médias diárias baseado no período de todos os dados
+      // Encontra a data mais antiga e mais recente
+      const datas = dadosParaCalcular.map(v => new Date(v.data)).sort((a, b) => a - b);
+      const dataMaisAntiga = datas[0];
+      const dataMaisRecente = datas[datas.length - 1];
+      
+      const dias = Math.max(1, Math.ceil((dataMaisRecente - dataMaisAntiga) / (1000 * 60 * 60 * 24)));
       const mediaDiariaVendas = metricas.vendasTotais / dias;
       const mediaDiariaLucro = metricas.lucroLiquido / dias;
 
-      // Calcula crescimento
-      const periodoAnteriorInicial = new Date(dataInicial);
-      periodoAnteriorInicial.setDate(periodoAnteriorInicial.getDate() - dias);
-      
-      const dadosPeriodoAnterior = todosOsDados.filter(venda => {
-        const dataVenda = new Date(venda.data);
-        dataVenda.setHours(0, 0, 0, 0);
-        return dataVenda >= periodoAnteriorInicial && dataVenda < dataInicial;
-      });
-
-      const vendasAnteriores = dadosPeriodoAnterior.reduce((total, venda) => 
-        total + (Number(venda.valorVendido) || 0), 0);
-
-      const crescimentoPeriodo = vendasAnteriores > 0 
-        ? ((metricas.vendasTotais - vendasAnteriores) / vendasAnteriores) * 100 
-        : 0;
+      // Crescimento é 0 pois estamos mostrando todos os dados
+      const crescimentoPeriodo = 0;
 
       // Atualiza o estado com as métricas calculadas
       setMetricas({
@@ -176,19 +164,11 @@ export default function Dashboard({ marketplace = 'mercadolivre' }) {
     setSidebarOpen(!sidebarOpen);
   };
 
-  const fetchVendas = async () => {
-    try {
-      // Usa o endpoint correto baseado no marketplace
-      const endpoint = marketplace === 'magalu' ? '/api/vendas-magalu' : '/api/vendas';
-      const response = await api.get(endpoint);
-      setVendas(response.data);
-    } catch (error) {
-      console.error('Erro ao buscar vendas:', error);
-    }
-  };
+  // REMOVIDO: fetchVendas() estava trazendo dados duplicados de /api/vendas
+  // Agora usamos apenas fetchVendasML() e fetchVendasMagalu() em carregarDados()
 
   useEffect(() => {
-    fetchVendas();
+    // Dados são carregados em carregarDados() que é chamado quando as datas mudam
   }, [marketplace]);
 
   return (
@@ -657,8 +637,8 @@ export default function Dashboard({ marketplace = 'mercadolivre' }) {
             Detalhamento de Pedidos
           </Typography>
           <VendasTable 
-            vendas={vendas} 
-            onVendaUpdate={fetchVendas} 
+            vendas={dadosVendas} 
+            onVendaUpdate={() => carregarDados()} 
           />
         </Paper>
       </Box>

@@ -136,16 +136,23 @@ export default function VendasTable({ vendas, onVendaUpdate }) {
     try {
       if (!data) return '-';
       
-      // Usa parseISO para garantir a precisão do fuso horário
-      const dataObj = parseISO(data);
+      let dataObj;
+      
+      // Se já é um objeto Date, usa direto
+      if (data instanceof Date) {
+        dataObj = data;
+      } else {
+        // Se é string, tenta fazer parse
+        dataObj = parseISO(data);
+      }
 
       if (isNaN(dataObj.getTime())) {
         console.error('Data inválida:', data);
         return '-';
       }
 
-      // Formata a data para exibir apenas o dia
-      return format(dataObj, "dd/MM/yyyy", { locale: ptBR });
+      // Formata a data e hora: "08/01/25 11:52"
+      return format(dataObj, "dd/MM/yy HH:mm", { locale: ptBR });
     } catch (error) {
       console.error('Erro ao formatar data:', error, data);
       return '-';

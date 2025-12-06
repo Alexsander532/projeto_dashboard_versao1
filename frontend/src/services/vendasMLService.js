@@ -1,111 +1,182 @@
 import axios from 'axios';
-import { format } from 'date-fns';
 import api from '../config/api';
 
+/**
+ * Buscar todas as vendas do Mercado Livre
+ */
 export const fetchVendasML = async (filtros = {}) => {
   try {
-    console.log('Iniciando busca de vendas do ML com filtros:', filtros);
-    
-    // Constrói os parâmetros da query
-    const params = new URLSearchParams();
-    
-    // Formata as datas para o formato ISO
-    if (filtros.dataInicial) {
-      const dataInicial = new Date(filtros.dataInicial);
-      dataInicial.setHours(0, 0, 0, 0);
-      params.append('dataInicial', format(dataInicial, 'yyyy-MM-dd'));
-    }
-    
-    if (filtros.dataFinal) {
-      const dataFinal = new Date(filtros.dataFinal);
-      dataFinal.setHours(23, 59, 59, 999);
-      params.append('dataFinal', format(dataFinal, 'yyyy-MM-dd'));
-    }
-    
-    if (filtros.sku) {
-      params.append('sku', filtros.sku);
-    }
+    const limite = filtros.limite || 10000; // Aumentado para pegar todos os ~1212 registros
+    const offset = filtros.offset || 0;
 
-    const response = await api.get(`/api/vendas?${params.toString()}`);
-    console.log('Dados recebidos:', response.data);
+    const response = await api.get('/api/vendas-ml', {
+      params: {
+        limite,
+        offset
+      }
+    });
     
-    // Processa os dados recebidos mapeando para os nomes corretos
-    return response.data.map(venda => ({
-      pedido: venda.pedido,
-      // Garante que a data seja tratada corretamente com o fuso horário local
-      data: new Date(venda.data),
-      sku: venda.sku,
-      unidades: Number(venda.unidades),
-      valorComprado: Number(venda.valor_comprado),
-      valorVendido: Number(venda.valor_vendido),
-      taxas: Number(venda.taxas),
-      frete: Number(venda.frete),
-      ctl: Number(venda.ctl),
-      valorLiquido: Number(venda.valor_liquido),
-      lucro: Number(venda.lucro),
-      margemLucro: Number(venda.margem_lucro),
-      envio: venda.envio
-    }));
+    // O backend retorna { data: [], total: number }
+    // Retornar apenas o array de dados mapeado para o formato esperado
+    const vendas = response.data.data || [];
+    
+    console.log(`✅ Carregadas ${vendas.length} vendas do Mercado Livre do Supabase`);
+    
+    return vendas.map(venda => {
+      // Parse da data: "08/01/25 11:52:28" -> Date object
+      let dataParsed;
+      try {
+        const [datePart, timePart] = venda.data_pedido.split(' ');
+        const [dia, mes, ano] = datePart.split('/');
+        const [hora, minuto, segundo] = timePart.split(':');
+        
+        // Converter ano de 2 dígitos para 4 dígitos (25 -> 2025)
+        const anoCompleto = parseInt(ano) < 50 ? 2000 + parseInt(ano) : 1900 + parseInt(ano);
+        
+        dataParsed = new Date(anoCompleto, parseInt(mes) - 1, parseInt(dia), parseInt(hora), parseInt(minuto), parseInt(segundo));
+      } catch (e) {
+        console.warn('Erro ao fazer parse da data:', venda.data_pedido, e);
+        dataParsed = new Date(); // Fallback para data atual
+      }
+      
+      return {
+        pedido: venda.order_id,
+        data: dataParsed,
+        sku: venda.sku,
+        unidades: Number(venda.quantidade),
+        valor_comprado: Number(venda.valor_comprado),
+        valor_vendido: Number(venda.valor_vendido),
+        taxas: Number(venda.taxas),
+        frete: Number(venda.frete),
+        ctl: Number(venda.ctl),
+        valor_liquido: Number(venda.valor_liquido),
+        lucro: Number(venda.lucro),
+        margem_lucro: Number(venda.margem_lucro),
+        envio: venda.tipo_envio,
+        status: venda.status,
+        orderId: venda.order_id,
+        // Mantém também camelCase para compatibilidade com Dashboard
+        valorComprado: Number(venda.valor_comprado),
+        valorVendido: Number(venda.valor_vendido),
+        valorLiquido: Number(venda.valor_liquido),
+        margemLucro: Number(venda.margem_lucro)
+      };
+    });
   } catch (error) {
-    console.error('Erro ao buscar vendas do Mercado Livre:', error.response?.data || error.message);
-    throw new Error('Não foi possível carregar os dados de vendas. Por favor, tente novamente.');
+    console.error('Erro ao buscar vendas ML:', error);
+    throw error;
   }
 };
 
-export const fetchMetricas = async (filtros = {}) => {
+/**
+ * Buscar vendas por período
+ */
+export const fetchVendasMLPorPeriodo = async (dataInicio, dataFim) => {
   try {
-    const params = new URLSearchParams();
-    
-    if (filtros.dataInicial) {
-      const dataInicial = new Date(filtros.dataInicial);
-      dataInicial.setHours(0, 0, 0, 0);
-      params.append('dataInicial', format(dataInicial, 'yyyy-MM-dd'));
-    }
-    
-    if (filtros.dataFinal) {
-      const dataFinal = new Date(filtros.dataFinal);
-      dataFinal.setHours(23, 59, 59, 999);
-      params.append('dataFinal', format(dataFinal, 'yyyy-MM-dd'));
-    }
-
-    const response = await api.get(`/api/vendas/metricas?${params.toString()}`);
-    
-    return {
-      ...response.data,
-      valor_total_vendido: Number(response.data.valor_total_vendido) || 0,
-      valor_total_comprado: Number(response.data.valor_total_comprado) || 0,
-      lucro_total: Number(response.data.lucro_total) || 0,
-      margem_media: Number(response.data.margem_media) || 0,
-      total_pedidos: Number(response.data.total_pedidos) || 0,
-      total_unidades: Number(response.data.total_unidades) || 0,
-      total_skus: Number(response.data.total_skus) || 0
-    };
+    const response = await api.get('/api/vendas-ml/periodo', {
+      params: {
+        dataInicio,
+        dataFim
+      }
+    });
+    return response.data;
   } catch (error) {
-    console.error('Erro ao buscar métricas:', error.response?.data || error.message);
-    throw new Error('Não foi possível carregar as métricas. Por favor, tente novamente.');
+    console.error('Erro ao buscar vendas ML por período:', error);
+    throw error;
   }
 };
 
-export const fetchMargins = async (filtros = {}) => {
+/**
+ * Buscar vendas por SKU
+ */
+export const fetchVendasMLPorSku = async (sku) => {
   try {
-    const params = new URLSearchParams();
-    
-    if (filtros.dataInicial) {
-      const dataInicial = new Date(filtros.dataInicial);
-      dataInicial.setHours(0, 0, 0, 0);
-      params.append('dataInicial', format(dataInicial, 'yyyy-MM-dd'));
-    }
-    
-    if (filtros.dataFinal) {
-      const dataFinal = new Date(filtros.dataFinal);
-      dataFinal.setHours(23, 59, 59, 999);
-      params.append('dataFinal', format(dataFinal, 'yyyy-MM-dd'));
-    }
-
-    const response = await api.get(`/api/vendas/margins?${params.toString()}`);
-    return response.data.margins;
+    const response = await api.get(`/api/vendas-ml/sku/${sku}`);
+    return response.data;
   } catch (error) {
-    console.error('Erro ao buscar margens:', error.response?.data || error.message);
-    throw new Error('Não foi possível carregar as margens. Por favor, tente novamente.');
+    console.error('Erro ao buscar vendas ML por SKU:', error);
+    throw error;
+  }
+};
+
+/**
+ * Buscar vendas por status
+ */
+export const fetchVendasMLPorStatus = async (status) => {
+  try {
+    const response = await api.get(`/api/vendas-ml/status/${status}`);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao buscar vendas ML por status:', error);
+    throw error;
+  }
+};
+
+/**
+ * Buscar venda específica por order_id
+ */
+export const fetchVendaMLPorOrderId = async (orderId) => {
+  try {
+    const response = await api.get(`/api/vendas-ml/${orderId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao buscar venda ML:', error);
+    throw error;
+  }
+};
+
+/**
+ * Buscar métricas de vendas ML
+ */
+export const fetchMetricasVendasML = async (dataInicio = null, dataFim = null) => {
+  try {
+    const params = {};
+    if (dataInicio) params.dataInicio = dataInicio;
+    if (dataFim) params.dataFim = dataFim;
+
+    const response = await api.get('/api/vendas-ml/metricas', { params });
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao buscar métricas vendas ML:', error);
+    throw error;
+  }
+};
+
+/**
+ * Buscar vendas agrupadas por SKU
+ */
+export const fetchVendasMLAgrupadas = async () => {
+  try {
+    const response = await api.get('/api/vendas-ml/agrupadas');
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao buscar vendas ML agrupadas:', error);
+    throw error;
+  }
+};
+
+/**
+ * Atualizar venda ML
+ */
+export const atualizarVendaML = async (orderId, dados) => {
+  try {
+    const response = await api.put(`/api/vendas-ml/${orderId}`, dados);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao atualizar venda ML:', error);
+    throw error;
+  }
+};
+
+/**
+ * Deletar venda ML
+ */
+export const deletarVendaML = async (orderId) => {
+  try {
+    const response = await api.delete(`/api/vendas-ml/${orderId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao deletar venda ML:', error);
+    throw error;
   }
 }; 

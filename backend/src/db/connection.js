@@ -21,7 +21,7 @@ const pool = new Pool({
 
 // Teste de conexão
 pool.on('connect', () => {
-  console.log('Conectado ao banco de dados Railway');
+  console.log('Conectado ao banco de dados Railway (usado por outras rotas)');
 });
 
 pool.on('error', (err) => {
