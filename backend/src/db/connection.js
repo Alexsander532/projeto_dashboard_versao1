@@ -1,19 +1,12 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// Remover logs de credenciais para segurança
-// console.log('$$$ DB USER',process.env.DB_USER);
-// console.log('$$$ DB HOST',process.env.DB_HOST);
-// console.log('$$$ DB DATABASE',process.env.DB_DATABASE);
-// console.log('$$$ DB PASSWORD',process.env.DB_PASSWORD);
-// console.log('$$$ DB PORT',process.env.DB_PORT);
-
 const pool = new Pool({
-  user: 'postgres',
-  host: 'centerbeam.proxy.rlwy.net',
-  database: 'railway',
-  password: 'DmyaUqXoBAMACqXUWQbUCEpFVnBPadqD',
-  port: 34984,
+  user: process.env.DB_USER || 'postgres',
+  host: process.env.DB_HOST,
+  database: process.env.DB_DATABASE || 'railway',
+  password: process.env.DB_PASSWORD,
+  port: parseInt(process.env.DB_PORT || '5432'),
   ssl: {
     rejectUnauthorized: false, // Necessário para conexões externas
   },

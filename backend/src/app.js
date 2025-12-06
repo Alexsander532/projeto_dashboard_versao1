@@ -10,9 +10,13 @@ const app = express();
 
 // Configuração do CORS
 app.use(cors({
-  origin: 'http://localhost:5173', // URL do frontend
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type']
+  origin: [
+    'http://localhost:5173', // Desenvolvimento local
+    'https://projeto-dashboard-versao1-frontend-wtay.vercel.app' // Produção Vercel
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 
 app.use(express.json());
