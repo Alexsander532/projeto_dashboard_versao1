@@ -568,7 +568,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
   };
 
   const columns = [
-    { id: 'acoes', label: 'Ações', minWidth: 120 },
+    // { id: 'acoes', label: 'Ações', minWidth: 120 },
     { id: 'sku', label: 'SKU', minWidth: 100 },
     { id: 'estoque', label: 'Estoque', minWidth: 150 },
     { id: 'precoCompra', label: 'Preço Compra', minWidth: 120 },
@@ -682,6 +682,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
                           transition: 'opacity 0.3s, filter 0.3s',
                         }}
                       >
+                        {/* COLUNA DE AÇÕES COMENTADA
                         <TableCell align="center">
                           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
                             <IconButton
@@ -714,6 +715,7 @@ export default function EstoqueTable({ onMetricasUpdate }) {
                             </Tooltip>
                           </Box>
                         </TableCell>
+                        */}
                         <TableCell align="center">{produto.sku}</TableCell>
                         <TableCell align="center">
                           <Box sx={{ 

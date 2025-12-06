@@ -58,16 +58,16 @@ export default function Dashboard({ marketplace = 'mercadolivre' }) {
   useEffect(() => {
     const hoje = new Date();
     
-    // Definir data inicial como o primeiro dia do mês atual
-    const primeiroDiaDoMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-    primeiroDiaDoMes.setHours(0, 0, 0, 0);
+    // Definir data inicial como o dia de hoje
+    const hojeInicio = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+    hojeInicio.setHours(0, 0, 0, 0);
     
     // Data final é hoje
-    const dataAtual = new Date();
-    dataAtual.setHours(23, 59, 59, 999);
+    const hojeFim = new Date();
+    hojeFim.setHours(23, 59, 59, 999);
     
-    setDataInicial(primeiroDiaDoMes);
-    setDataFinal(dataAtual);
+    setDataInicial(hojeInicio);
+    setDataFinal(hojeFim);
   }, []);
 
   useEffect(() => {
@@ -86,10 +86,13 @@ export default function Dashboard({ marketplace = 'mercadolivre' }) {
         : await fetchVendasML({});
       setDadosVendas(todosOsDados);
       
-      // NÃO FILTRAR POR DATA - mostrar todos os dados da tabela
-      const dadosParaCalcular = todosOsDados;
+      // FILTRAR PELOS FILTROS SELECIONADOS (dataInicial e dataFinal)
+      const dadosFiltrados = todosOsDados.filter(venda => {
+        const dataVenda = new Date(venda.data);
+        return dataVenda >= dataInicial && dataVenda <= dataFinal;
+      });
 
-      if (dadosParaCalcular.length === 0) {
+      if (dadosFiltrados.length === 0) {
         setMetricas({
           vendasTotais: 0,
           despesas: 0,
@@ -102,8 +105,8 @@ export default function Dashboard({ marketplace = 'mercadolivre' }) {
         return;
       }
 
-      // Calcula as métricas com TODOS os dados
-      const metricas = dadosParaCalcular.reduce((acc, venda) => {
+      // Calcula as métricas com os dados filtrados
+      const metricas = dadosFiltrados.reduce((acc, venda) => {
         // Pega os valores diretamente do banco
         const valorVendido = Number(venda.valorVendido) || 0;
         const lucro = Number(venda.lucro) || 0;
@@ -121,17 +124,16 @@ export default function Dashboard({ marketplace = 'mercadolivre' }) {
         unidadesVendidas: 0
       });
 
-      // Calcula médias diárias baseado no período de todos os dados
-      // Encontra a data mais antiga e mais recente
-      const datas = dadosParaCalcular.map(v => new Date(v.data)).sort((a, b) => a - b);
+      // Calcula médias diárias baseado no período filtrado
+      const datas = dadosFiltrados.map(v => new Date(v.data)).sort((a, b) => a - b);
       const dataMaisAntiga = datas[0];
       const dataMaisRecente = datas[datas.length - 1];
       
-      const dias = Math.max(1, Math.ceil((dataMaisRecente - dataMaisAntiga) / (1000 * 60 * 60 * 24)));
+      const dias = Math.max(1, Math.ceil((dataMaisRecente - dataMaisAntiga) / (1000 * 60 * 60 * 24)) + 1);
       const mediaDiariaVendas = metricas.vendasTotais / dias;
       const mediaDiariaLucro = metricas.lucroLiquido / dias;
 
-      // Crescimento é 0 pois estamos mostrando todos os dados
+      // Crescimento é 0 pois temos dados discretos
       const crescimentoPeriodo = 0;
 
       // Atualiza o estado com as métricas calculadas
