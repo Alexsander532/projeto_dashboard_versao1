@@ -109,6 +109,8 @@ export default function VendasTable({ vendas, onVendaUpdate }) {
     valorAntigo: null,
     valorNovo: null
   });
+  const [filtroData, setFiltroData] = useState('');
+  const [filtroSku, setFiltroSku] = useState('');
 
   const handleChangePage = (event, newPage) => {
     setPage(newPage);
@@ -176,6 +178,28 @@ export default function VendasTable({ vendas, onVendaUpdate }) {
       lucro: venda.lucro || 0,
       margem_lucro: venda.margem_lucro || 0
     }))
+    .filter(venda => {
+      // Filtro por SKU
+      if (filtroSku && !venda.sku.toLowerCase().includes(filtroSku.toLowerCase())) {
+        return false;
+      }
+
+      // Filtro por data (compara apenas a data, não a hora)
+      if (filtroData) {
+        const dataFiltro = new Date(filtroData);
+        const dataVenda = new Date(venda.dataObj);
+        
+        // Zera a hora para comparar apenas a data
+        dataFiltro.setHours(0, 0, 0, 0);
+        dataVenda.setHours(0, 0, 0, 0);
+        
+        if (dataFiltro.getTime() !== dataVenda.getTime()) {
+          return false;
+        }
+      }
+
+      return true;
+    })
     .sort((a, b) => b.dataObj - a.dataObj);
 
   // Animação para as linhas
@@ -258,6 +282,62 @@ export default function VendasTable({ vendas, onVendaUpdate }) {
           flexDirection: 'column'
         }}
       >
+        {/* Barra de Filtros */}
+        <Box
+          sx={{
+            padding: '16px',
+            borderBottom: '1px solid',
+            borderColor: theme.palette.divider,
+            display: 'flex',
+            gap: '16px',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            backgroundColor: theme.palette.mode === 'dark' 
+              ? theme.palette.grey[900]
+              : theme.palette.grey[50]
+          }}
+        >
+          <TextField
+            label="Filtrar por Data"
+            type="date"
+            value={filtroData}
+            onChange={(e) => {
+              setFiltroData(e.target.value);
+              setPage(0);
+            }}
+            InputLabelProps={{ shrink: true }}
+            size="small"
+            sx={{ minWidth: '180px' }}
+          />
+          <TextField
+            label="Filtrar por SKU"
+            value={filtroSku}
+            onChange={(e) => {
+              setFiltroSku(e.target.value);
+              setPage(0);
+            }}
+            placeholder="Digite o SKU..."
+            size="small"
+            sx={{ minWidth: '200px' }}
+          />
+          {(filtroData || filtroSku) && (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => {
+                setFiltroData('');
+                setFiltroSku('');
+                setPage(0);
+              }}
+            >
+              Limpar Filtros
+            </Button>
+          )}
+          <Typography variant="caption" sx={{ marginLeft: 'auto', color: 'text.secondary' }}>
+            {dadosProcessados.length} de {vendas.length} registros
+          </Typography>
+        </Box>
+
         <TableContainer sx={{ flexGrow: 1 }}>
           <Table stickyHeader>
           <TableHead>
