@@ -1,5 +1,6 @@
 import axios from 'axios';
 import api from '../config/api';
+import { fetchEstoque } from './estoqueService';
 
 /**
  * Buscar todas as vendas do Mercado Livre
@@ -22,6 +23,20 @@ export const fetchVendasML = async (filtros = {}) => {
     
     console.log(`✅ Carregadas ${vendas.length} vendas do Mercado Livre do Supabase`);
     
+    // Buscar dados do estoque para pegar os preços de compra
+    let estoque = [];
+    try {
+      estoque = await fetchEstoque();
+    } catch (e) {
+      console.warn('Erro ao buscar estoque:', e);
+    }
+    
+    // Criar um mapa SKU -> precoCompra para busca rápida
+    const estoqueMap = {};
+    estoque.forEach(item => {
+      estoqueMap[item.sku] = item.precoCompra;
+    });
+    
     return vendas.map(venda => {
       // Parse da data: "08/01/25 11:52:28" -> Date object
       let dataParsed;
@@ -39,12 +54,15 @@ export const fetchVendasML = async (filtros = {}) => {
         dataParsed = new Date(); // Fallback para data atual
       }
       
+      // Buscar o preço de compra do estoque, se não encontrar, usar o valor original
+      const precoCompraDoEstoque = estoqueMap[venda.sku] || Number(venda.valor_comprado);
+      
       return {
         pedido: venda.order_id,
         data: dataParsed,
         sku: venda.sku,
         unidades: Number(venda.quantidade),
-        valor_comprado: Number(venda.valor_comprado),
+        valor_comprado: precoCompraDoEstoque,
         valor_vendido: Number(venda.valor_vendido),
         taxas: Number(venda.taxas),
         frete: Number(venda.frete),
@@ -56,7 +74,7 @@ export const fetchVendasML = async (filtros = {}) => {
         status: venda.status,
         orderId: venda.order_id,
         // Mantém também camelCase para compatibilidade com Dashboard
-        valorComprado: Number(venda.valor_comprado),
+        valorComprado: precoCompraDoEstoque,
         valorVendido: Number(venda.valor_vendido),
         valorLiquido: Number(venda.valor_liquido),
         margemLucro: Number(venda.margem_lucro)
