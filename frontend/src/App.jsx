@@ -5,7 +5,7 @@ import { CssBaseline } from '@mui/material';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
-import AppRoutes from './routes';
+import { Outlet } from 'react-router-dom';
 
 function App() {
   return (
@@ -13,7 +13,7 @@ function App() {
       <ThemeProvider>
         <CssBaseline />
         <ProtectedRoute>
-          <AppRoutes />
+          <Outlet />
         </ProtectedRoute>
         <ToastContainer position="top-right" autoClose={3000} />
       </ThemeProvider>
