@@ -87,7 +87,9 @@ export default function EstoqueTable({ onMetricasUpdate }) {
     onMetricasUpdate(novasMetricas);
   }, [onMetricasUpdate]);
 
+  // Status agora vem calculado do backend com base no estoque ideal para 3,5 meses
   const calcularStatus = (estoque, minimo) => {
+    // Mantido para compatibilidade, mas o backend já calcula
     if (estoque === 0) return 'Sem Estoque';
     if (estoque < minimo) return 'Em reposição';
     if (estoque < minimo * 1.2) return 'Em negociação';
@@ -114,23 +116,27 @@ export default function EstoqueTable({ onMetricasUpdate }) {
         setLoading(true);
         const dadosEstoque = await fetchEstoque();
         
+        // Os dados já vêm calculados do backend com:
+        // - mediaVendas (ponderada de 15, 30 e 60 dias)
+        // - estoqueIdeal (para 3,5 meses)
+        // - previsaoDias (quantos dias o estoque atual vai durar)
+        // - status (baseado no % do ideal)
+        // - quantidadeParaComprar (quanto falta para o ideal)
         const dadosProcessados = dadosEstoque.map(produto => ({
           ...produto,
           estoque: Number(produto.estoque) || 0,
-          minimo: Number(produto.minimo) || 0,
+          minimo: Number(produto.estoqueIdeal) || 0, // Agora "mínimo" = estoque ideal
           precoCompra: Number(produto.precoCompra) || 0,
           valorLiquidoMedio: Number(produto.valorLiquidoMedio) || 0,
           valorLiquidoTotal: (Number(produto.estoque) || 0) * (Number(produto.precoCompra) || 0),
           mediaVendas: Number(produto.mediaVendas) || 0,
           totalVendas: Number(produto.totalVendas) || 0,
-          status: calcularStatus(
-            Number(produto.estoque), 
-            Number(produto.minimo)
-          ),
-          previsaoDias: calcularPrevisao(
-            produto.estoque, 
-            produto.mediaVendas
-          )
+          vendasQuinzenais: Number(produto.vendasQuinzenais) || 0,
+          previsaoDias: produto.previsaoDias,
+          status: produto.status || 'Sem Estoque',
+          estoqueIdeal: Number(produto.estoqueIdeal) || 0,
+          quantidadeParaComprar: Number(produto.quantidadeParaComprar) || 0,
+          percentualIdeal: Number(produto.percentualIdeal) || 0
         }));
 
         setProdutos(dadosProcessados);
@@ -574,8 +580,13 @@ export default function EstoqueTable({ onMetricasUpdate }) {
     { id: 'precoCompra', label: 'Preço Compra', minWidth: 120 },
     { id: 'valorLiquidoTotal', label: 'Valor Líquido Total', minWidth: 120 },
     { id: 'status', label: 'Status', minWidth: 120 },
-    { id: 'vendasQuinzenais', label: 'Vendas Quinzenais', minWidth: 120 },
+    // { id: 'vendasQuinzenais', label: 'Vendas Quinzenais', minWidth: 120 },
     { id: 'previsaoDias', label: 'Previsão', minWidth: 100 },
+    // Novas colunas
+    { id: 'mediaVendas', label: 'Vendas/Dia', minWidth: 100 },
+    { id: 'estoqueIdeal', label: 'Estoque Ideal (3,5m)', minWidth: 140 },
+    { id: 'quantidadeParaComprar', label: 'Comprar', minWidth: 120 },
+    { id: 'percentualIdeal', label: '% Ideal', minWidth: 100 },
     // { id: 'ultimaVenda', label: 'Última Venda', minWidth: 120 }
   ];
 
@@ -784,15 +795,54 @@ export default function EstoqueTable({ onMetricasUpdate }) {
                             sx={{ minWidth: 100 }}
                           />
                         </TableCell>
+                        {/* Coluna de Vendas Quinzenais comentada - não é mais útil
                         <TableCell align="center">
                           <Typography>
                             {produto.vendasQuinzenais ? produto.vendasQuinzenais : '0'} un.
                           </Typography>
                         </TableCell>
+                        */}
                         <TableCell align="center">
                           <Typography>
                             {produto.previsaoDias ? `${produto.previsaoDias} dias` : 'N/A'}
                           </Typography>
+                        </TableCell>
+                        {/* Novas colunas: Vendas/Dia */}
+                        <TableCell align="center">
+                          <Typography>
+                            {produto.mediaVendas ? `${produto.mediaVendas.toFixed(1)}/dia` : '0/dia'}
+                          </Typography>
+                        </TableCell>
+                        {/* Estoque Ideal */}
+                        <TableCell align="center">
+                          <Typography sx={{ 
+                            fontWeight: 600,
+                            color: produto.percentualIdeal >= 90 && produto.percentualIdeal <= 110 ? 'success.main' : 'warning.main'
+                          }}>
+                            {produto.estoqueIdeal ? `${produto.estoqueIdeal} un.` : '-'}
+                          </Typography>
+                        </TableCell>
+                        {/* Quantidade para Comprar */}
+                        <TableCell align="center">
+                          <Typography sx={{
+                            color: produto.quantidadeParaComprar > 0 ? 'error.main' : 'success.main',
+                            fontWeight: 500
+                          }}>
+                            {produto.quantidadeParaComprar > 0 ? `${produto.quantidadeParaComprar} un.` : '✓ Ok'}
+                          </Typography>
+                        </TableCell>
+                        {/* Percentual Ideal */}
+                        <TableCell align="center">
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                            <LinearProgress 
+                              variant="determinate" 
+                              value={Math.min(produto.percentualIdeal, 100)}
+                              sx={{ width: '60px', height: '6px', borderRadius: '3px' }}
+                            />
+                            <Typography sx={{ minWidth: '40px', fontWeight: 600, fontSize: '0.875rem' }}>
+                              {produto.percentualIdeal}%
+                            </Typography>
+                          </Box>
                         </TableCell>
                         {/* <TableCell align="center">
                           {produto.ultimaVenda ? new Date(produto.ultimaVenda).toLocaleDateString('pt-BR') : '-'}

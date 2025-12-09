@@ -9,7 +9,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Checkbox,
   Chip,
   IconButton,
   Tooltip,
@@ -26,30 +25,29 @@ import { fetchEstoque } from '../services/estoqueService';
 export default function PrevisaoCompras({ onAddToPedido }) {
   const theme = useMuiTheme();
   const [previsoes, setPrevisoes] = useState([]);
-  const [checked, setChecked] = useState(() => {
-    const saved = localStorage.getItem('previsoes_checked');
-    return saved ? JSON.parse(saved) : {};
-  });
 
-  // Funções de cálculo do EstoqueTable
-  const calcularMediaVendas = (vendasDiarias) => {
-    if (!vendasDiarias || vendasDiarias.length === 0) return 0;
-    return vendasDiarias.reduce((sum, vendas) => sum + vendas, 0) / vendasDiarias.length;
+  // Ordem de prioridade para sorting
+  const statusPriority = {
+    'Crítico': 1,
+    'Em reposição': 2,
+    'Em negociação': 3
   };
 
-  const calcularMinimo = (mediaVendas) => {
-    return Math.ceil(mediaVendas * 60); // 60 dias de estoque mínimo
+  // Cores de background para cada status
+  const statusBgColor = {
+    'Crítico': '#ffebee',
+    'Em reposição': '#fff8e1',
+    'Em negociação': '#e3f2fd'
   };
 
-  const determinarStatus = (estoque, mediaVendas) => {
-    const minimo = calcularMinimo(mediaVendas);
-    const minimoNegociacao = Math.ceil(minimo * 1.2); // 20% acima do mínimo
-
-    if (estoque === 0) return 'sem estoque';
-    if (estoque < minimo) return 'em reposicao';
-    if (estoque < minimoNegociacao) return 'em negociacao';
-    if (estoque <= minimo * 1.5) return 'em estoque';
-    return 'estoque alto';
+  // Funções de cálculo atualizadas para 3,5 meses
+  const determinarStatus = (percentualIdeal) => {
+    // Baseado no % do estoque ideal que você tem
+    if (percentualIdeal < 30) return 'Crítico';
+    if (percentualIdeal < 60) return 'Em reposição';
+    if (percentualIdeal < 90) return 'Em negociação';
+    if (percentualIdeal <= 110) return 'Em estoque';
+    return 'Estoque alto';
   };
 
   useEffect(() => {
@@ -58,33 +56,44 @@ export default function PrevisaoCompras({ onAddToPedido }) {
       try {
         const dadosEstoque = await fetchEstoque();
         
-        // Processar cada item do estoque
-        const novasPrevisoes = dadosEstoque
+        // Processar cada item do estoque usando dados reais calculados
+        let novasPrevisoes = dadosEstoque
           .map(item => {
-            const mediaVendas = calcularMediaVendas(item.vendasDiarias || []);
-            const status = determinarStatus(item.estoque, mediaVendas);
+            const status = determinarStatus(item.percentualIdeal || 0);
             
-            // Incluir apenas itens que precisam de reposição
-            if (!['em negociacao', 'em reposicao', 'sem estoque'].includes(status)) {
-              return null;
+            // Incluir APENAS itens que estão em Crítico, Em reposição ou Em negociação
+            if (!['Crítico', 'Em reposição', 'Em negociação'].includes(status)) {
+              return null; // Ignora En estoque e Estoque alto
             }
 
-            // Calcular previsão para 3,5 meses
-            const previsaoCompra = Math.ceil(mediaVendas * 105); // 3,5 meses = 105 dias
+            // Usar quantidadeParaComprar já calculada no backend
+            const quantidadeParaComprar = item.quantidadeParaComprar || 0;
 
             return {
               sku: item.sku,
               produto: item.produto,
               status,
               estoqueAtual: item.estoque,
-              vendasMensais: Math.ceil(mediaVendas * 30), // Média diária × 30 dias
-              previsaoCompra,
-              precoCompra: item.precoCompra || 0
+              mediaVendas: item.mediaVendas || 0,
+              vendasMensais: Math.ceil((item.mediaVendas || 0) * 30),
+              estoqueIdeal: item.estoqueIdeal || 0,
+              quantidadeParaComprar: quantidadeParaComprar,
+              percentualIdeal: item.percentualIdeal || 0,
+              precoCompra: item.precoCompra || 0,
+              previsaoEntrega: null // Pode ser preenchido depois
             };
           })
           .filter(Boolean); // Remover itens null
 
+        // Auto-sort por status (Crítico primeiro)
+        novasPrevisoes.sort((a, b) => {
+          const priorityA = statusPriority[a.status] || 999;
+          const priorityB = statusPriority[b.status] || 999;
+          return priorityA - priorityB;
+        });
+
         setPrevisoes(novasPrevisoes);
+        console.log(`📊 Previsão de Compras atualizada: ${novasPrevisoes.length} itens precisam de atenção (Crítico, Em reposição, Em negociação)`);
       } catch (error) {
         console.error('Erro ao carregar dados do estoque:', error);
       }
@@ -92,17 +101,6 @@ export default function PrevisaoCompras({ onAddToPedido }) {
 
     carregarDados();
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem('previsoes_checked', JSON.stringify(checked));
-  }, [checked]);
-
-  const handleToggleCheck = (sku) => {
-    setChecked(prev => ({
-      ...prev,
-      [sku]: !prev[sku]
-    }));
-  };
 
   const getStatusColor = (status) => {
     const statusLower = status.toLowerCase();
@@ -119,6 +117,11 @@ export default function PrevisaoCompras({ onAddToPedido }) {
     }).format(valor);
   };
 
+  // Calcular valor total de reposição necessária
+  const valorTotalReposicao = previsoes.reduce((total, item) => {
+    return total + (item.quantidadeParaComprar * item.precoCompra);
+  }, 0);
+
   return (
     <Paper 
       elevation={0}
@@ -126,41 +129,54 @@ export default function PrevisaoCompras({ onAddToPedido }) {
         mt: 4, 
         p: 3,
         borderRadius: '12px',
-        border: `1px solid ${theme.palette.divider}`
+        border: `1px solid ${theme.palette.divider}`,
+        background: `linear-gradient(135deg, #fff8e1 0%, #ffe0b2 100%)`
       }}
     >
       <Box sx={{ 
         display: 'flex', 
-        alignItems: 'center', 
-        gap: 2, 
+        alignItems: 'flex-start',
+        gap: 3, 
         mb: 3 
       }}>
-        <WarningIcon sx={{ color: theme.palette.warning.main }} />
-        <Typography variant="h6" component="h2">
-          Previsão de Compras
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
-          {previsoes.length} itens precisam de atenção
-        </Typography>
+        <Box sx={{ flex: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+            <WarningIcon sx={{ color: theme.palette.warning.main }} />
+            <Typography variant="h6" component="h2">
+              Previsão de Compras
+            </Typography>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ ml: 5 }}>
+            Produtos que precisam de reposição (Crítico, Em reposição, Em negociação)
+          </Typography>
+        </Box>
+        <Box sx={{ 
+          textAlign: 'right',
+          p: 2,
+          bgcolor: '#fff9f0',
+          borderRadius: '8px',
+          borderLeft: '3px solid #FF9800',
+          minWidth: '250px'
+        }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+            💰 Investimento Total Estipulado
+          </Typography>
+          <Typography variant="h5" sx={{ fontWeight: 'bold', color: '#FF9800', mb: 1 }}>
+            {formatarMoeda(valorTotalReposicao)}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {previsoes.length} itens precisam de atenção
+          </Typography>
+        </Box>
       </Box>
 
       <TableContainer>
         <Table>
           <TableHead>
-            <TableRow>
-              <TableCell padding="checkbox">
-                <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                  Comprado
-                </Typography>
-              </TableCell>
+            <TableRow sx={{ backgroundColor: theme.palette.mode === 'dark' ? '#1e1e1e' : '#f5f5f5' }}>
               <TableCell>
                 <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
                   SKU
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                  Produto
                 </Typography>
               </TableCell>
               <TableCell align="center">
@@ -175,18 +191,43 @@ export default function PrevisaoCompras({ onAddToPedido }) {
               </TableCell>
               <TableCell align="center">
                 <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                  Vendas Mensais
+                  Vendas/Dia
                 </Typography>
               </TableCell>
               <TableCell align="center">
                 <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                  Previsão de Compra
+                  Estoque Ideal (3,5m)
                 </Typography>
               </TableCell>
               <TableCell align="center">
-                <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                  Valor Total
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                    Comprar (un.)
+                  </Typography>
+                  <Tooltip title="Quantidade a comprar para atingir o estoque ideal de 3,5 meses">
+                    <InfoIcon sx={{ fontSize: 16, color: theme.palette.info.main }} />
+                  </Tooltip>
+                </Box>
+              </TableCell>
+              <TableCell align="center">
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                    % Ideal
+                  </Typography>
+                  <Tooltip title="Percentual do estoque em relação ao ideal de 3,5 meses">
+                    <InfoIcon sx={{ fontSize: 16, color: theme.palette.info.main }} />
+                  </Tooltip>
+                </Box>
+              </TableCell>
+              <TableCell align="center">
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                    Valor (R$)
+                  </Typography>
+                  <Tooltip title="Custo total da compra (quantidade × preço unitário)">
+                    <InfoIcon sx={{ fontSize: 16, color: theme.palette.info.main }} />
+                  </Tooltip>
+                </Box>
               </TableCell>
               <TableCell align="center">
                 <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
@@ -200,42 +241,65 @@ export default function PrevisaoCompras({ onAddToPedido }) {
               <TableRow 
                 key={item.sku}
                 sx={{
-                  '&:nth-of-type(odd)': {
-                    backgroundColor: theme.palette.action.hover,
+                  backgroundColor: statusBgColor[item.status] || 'transparent',
+                  '&:hover': {
+                    backgroundColor: statusBgColor[item.status] ? `${statusBgColor[item.status]}dd` : theme.palette.action.hover,
                   },
-                  opacity: checked[item.sku] ? 0.5 : 1
+                  transition: 'background-color 0.2s ease'
                 }}
               >
-                <TableCell padding="checkbox">
-                  <Checkbox
-                    checked={checked[item.sku] || false}
-                    onChange={() => handleToggleCheck(item.sku)}
-                  />
-                </TableCell>
                 <TableCell>{item.sku}</TableCell>
-                <TableCell>{item.produto}</TableCell>
                 <TableCell align="center">
                   <Chip 
                     label={item.status}
                     size="small"
                     sx={{ 
                       color: getStatusColor(item.status),
-                      bgcolor: `${getStatusColor(item.status)}15`
+                      bgcolor: `${getStatusColor(item.status)}25`
                     }}
                   />
                 </TableCell>
                 <TableCell align="center">{item.estoqueAtual}</TableCell>
-                <TableCell align="center">{item.vendasMensais}</TableCell>
+                <TableCell align="center">
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    {Math.ceil(item.mediaVendas)}/dia
+                  </Typography>
+                </TableCell>
                 <TableCell align="center">
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                    {item.previsaoCompra}
-                    <Tooltip title="Quantidade calculada para 3,5 meses de estoque">
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {Math.ceil(item.estoqueIdeal)} un.
+                    </Typography>
+                    <Tooltip title="Quantidade necessária para 3,5 meses">
                       <InfoIcon sx={{ fontSize: 16, color: theme.palette.info.main }} />
                     </Tooltip>
                   </Box>
                 </TableCell>
                 <TableCell align="center">
-                  {formatarMoeda(item.previsaoCompra * item.precoCompra)}
+                  <Typography 
+                    sx={{
+                      color: item.quantidadeParaComprar > 0 ? theme.palette.error.main : theme.palette.success.main,
+                      fontWeight: 700,
+                      fontSize: '1.1rem'
+                    }}
+                  >
+                    {item.quantidadeParaComprar > 0 ? item.quantidadeParaComprar : '✓'}
+                  </Typography>
+                </TableCell>
+                <TableCell align="center">
+                  <Typography 
+                    sx={{
+                      color: item.percentualIdeal < 90 ? theme.palette.warning.main : theme.palette.success.main,
+                      fontWeight: 600
+                    }}
+                  >
+                    {item.percentualIdeal.toFixed(1)}%
+                  </Typography>
+                </TableCell>
+                <TableCell align="center">
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    {formatarMoeda(item.quantidadeParaComprar * item.precoCompra)}
+                  </Typography>
                 </TableCell>
                 <TableCell align="center">
                   <Tooltip title="Adicionar ao pedido de compra">
