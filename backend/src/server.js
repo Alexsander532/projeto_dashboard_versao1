@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 require('dotenv').config();
-const pool = require('./db/connection');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -37,6 +36,7 @@ const estoqueRoutes = require('./routes/estoque');
 const metasRoutes = require('./routes/metas');
 const produtosRoutes = require('./routes/produtos');
 const relatoriosRoutes = require('./routes/relatorios');
+const comprasRoutes = require('./routes/compras');
 
 // Registrar rotas
 app.use('/api/vendas', vendasRoutes);
@@ -45,6 +45,7 @@ app.use('/api/estoque', estoqueRoutes);
 app.use('/api/metas', metasRoutes);
 app.use('/api/produtos', produtosRoutes);
 app.use('/api/relatorios', relatoriosRoutes);
+app.use('/api/compras', comprasRoutes);
 
 // Rota de teste para verificar se o servidor está rodando
 app.get('/api/status', (req, res) => {
@@ -63,14 +64,9 @@ app.use((req, res) => {
 
 const startServer = async () => {
   try {
-    // Testar conexão com o banco
-    await pool.query('SELECT NOW()');
-    console.log('Conexão com o banco de dados estabelecida');
-    console.log('✅ Supabase conectado com sucesso para o módulo de estoque');
-
     // Iniciar o servidor
     app.listen(PORT, () => {
-      console.log(`Servidor rodando na porta ${PORT}`);
+      console.log(`⚡ Servidor rodando em http://localhost:${PORT}`);
       console.log('Rotas disponíveis:');
       console.log('- GET    /api/produtos');
       console.log('- GET    /api/produtos/:sku');

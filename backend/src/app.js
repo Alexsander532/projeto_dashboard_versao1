@@ -5,6 +5,7 @@ const vendasMagaluRoutes = require('./routes/vendasMagalu');
 const vendasMLRoutes = require('./routes/vendasML');
 const estoqueRoutes = require('./routes/estoque/estoque'); // Novo Supabase
 const metasRoutes = require('./routes/metas');
+const comprasRoutes = require('./routes/compras');
 
 const app = express();
 
@@ -22,11 +23,12 @@ app.use(cors({
 app.use(express.json());
 
 // Rotas
-app.use('/api', vendasRoutes);
+app.use('/api/vendas', vendasRoutes);
 app.use('/api/vendas-magalu', vendasMagaluRoutes);
 app.use('/api/vendas-ml', vendasMLRoutes);
 app.use('/api/estoque', estoqueRoutes);
 app.use('/api/metas', metasRoutes);
+app.use('/api/compras', comprasRoutes);
 
 // Rota de teste
 app.get('/', (req, res) => {

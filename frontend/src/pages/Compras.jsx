@@ -11,7 +11,13 @@ import {
   IconButton,
   Chip,
   Tooltip,
-  Badge
+  Badge,
+  CircularProgress,
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -23,11 +29,14 @@ import {
   AttachMoney as AttachMoneyIcon,
   Schedule as ScheduleIcon,
   Warning as WarningIcon,
-  TrendingUp as TrendingUpIcon
+  TrendingUp as TrendingUpIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon
 } from '@mui/icons-material';
 import Sidebar from '../components/Sidebar';
 import CompraForm from '../components/CompraForm';
 import PrevisaoCompras from '../components/PrevisaoCompras';
+import { buscarPedidos, atualizarStatusPedido, deletarPedido, buscarMetricasFinanceiras } from '../services/comprasService';
 
 const colunas = [
   {
@@ -66,31 +75,93 @@ export default function Compras() {
   const theme = useTheme();
   const [formOpen, setFormOpen] = useState(false);
   const [produtoParaAdicionar, setProdutoParaAdicionar] = useState(null);
-  const [pedidos, setPedidos] = useState(() => {
-    const savedPedidos = localStorage.getItem('pedidos_compra');
-    return savedPedidos ? JSON.parse(savedPedidos) : [];
+  const [pedidos, setPedidos] = useState([]);
+  const [metricas, setMetricas] = useState({
+    totalPedidos: 0,
+    totalTransito: 0,
+    totalRecebido: 0,
+    totalPendente: 0,
+    totalGeral: 0
   });
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState(null);
+  const [pedidoParaDeletar, setPedidoParaDeletar] = useState(null);
+  const [deletando, setDeletando] = useState(false);
 
+  // Carregar pedidos ao montar o componente
   useEffect(() => {
-    localStorage.setItem('pedidos_compra', JSON.stringify(pedidos));
-  }, [pedidos]);
+    carregarDados();
+  }, []);
 
-  const handleMoverPedido = (pedidoId, novoStatus) => {
-    setPedidos(pedidos.map(pedido => 
-      pedido.id === pedidoId ? { ...pedido, status: novoStatus } : pedido
-    ));
+  const carregarDados = async () => {
+    try {
+      setLoading(true);
+      setErro(null);
+      
+      const [pedidosData, metricasData] = await Promise.all([
+        buscarPedidos(),
+        buscarMetricasFinanceiras()
+      ]);
+      
+      setPedidos(pedidosData);
+      setMetricas(metricasData);
+      console.log('✅ Dados de compras carregados:', pedidosData);
+    } catch (error) {
+      console.error('❌ Erro ao carregar dados:', error);
+      setErro('Erro ao carregar pedidos. Verifique sua conexão.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSubmitPedido = (novoPedido) => {
-    const id = pedidos.length > 0 ? Math.max(...pedidos.map(p => p.id)) + 1 : 1;
-    setPedidos([...pedidos, { ...novoPedido, id, status: 'pedido' }]);
-    setFormOpen(false);
-    setProdutoParaAdicionar(null);
+  const handleMoverPedido = async (pedidoId, novoStatus) => {
+    try {
+      console.log(`🔄 Movendo pedido ${pedidoId} para status ${novoStatus}`);
+      const pedidoAtualizado = await atualizarStatusPedido(pedidoId, novoStatus);
+      
+      // Atualizar lista local
+      setPedidos(pedidos.map(p => p.id === pedidoId ? pedidoAtualizado : p));
+      
+      // Recarregar métricas
+      const novasMetricas = await buscarMetricasFinanceiras();
+      setMetricas(novasMetricas);
+      
+      console.log('✅ Pedido movido com sucesso');
+    } catch (error) {
+      console.error('❌ Erro ao mover pedido:', error);
+      setErro('Erro ao atualizar status do pedido');
+    }
   };
 
-  const handleAddToPedido = (produto) => {
-    setProdutoParaAdicionar(produto);
-    setFormOpen(true);
+  const handleSubmitPedido = async (novoPedido) => {
+    // Recarregar dados após criar novo pedido
+    await carregarDados();
+  };
+
+  const handleDeletePedido = async () => {
+    if (!pedidoParaDeletar) return;
+
+    try {
+      setDeletando(true);
+      console.log(`🗑️ Deletando pedido ${pedidoParaDeletar.id}`);
+      
+      await deletarPedido(pedidoParaDeletar.id);
+      
+      // Remover da lista local
+      setPedidos(pedidos.filter(p => p.id !== pedidoParaDeletar.id));
+      
+      // Recarregar métricas
+      const novasMetricas = await buscarMetricasFinanceiras();
+      setMetricas(novasMetricas);
+      
+      setPedidoParaDeletar(null);
+      console.log('✅ Pedido deletado com sucesso');
+    } catch (error) {
+      console.error('❌ Erro ao deletar pedido:', error);
+      setErro('Erro ao deletar pedido');
+    } finally {
+      setDeletando(false);
+    }
   };
 
   const getProximoStatus = (statusAtual) => {
@@ -120,36 +191,12 @@ export default function Compras() {
     }).format(valor);
   };
 
-  // Calcular métricas financeiras
-  const calcularMetricasFinanceiras = () => {
-    const totalPorEtapa = {
-      pedido: 0,
-      fabricacao: 0,
-      transito: 0,
-      alfandega: 0,
-      recebido: 0
-    };
-
-    pedidos.forEach(pedido => {
-      const valor = parseFloat(pedido.valor) || 0;
-      totalPorEtapa[pedido.status] = (totalPorEtapa[pedido.status] || 0) + valor;
-    });
-
-    return {
-      totalPedidos: totalPorEtapa.pedido,
-      totalTransito: totalPorEtapa.fabricacao + totalPorEtapa.transito + totalPorEtapa.alfandega,
-      totalRecebido: totalPorEtapa.recebido,
-      totalPendente: totalPorEtapa.pedido + totalPorEtapa.fabricacao + totalPorEtapa.transito + totalPorEtapa.alfandega,
-      totalGeral: Object.values(totalPorEtapa).reduce((a, b) => a + b, 0)
-    };
-  };
-
   // Calcular dias em cada etapa para cada pedido
   const calcularDiasEmEtapa = (pedido) => {
     // Se não tem data de criação, retorna 0
-    if (!pedido.dataPedido) return 0;
+    if (!pedido.data_pedido && !pedido.dataPedido) return 0;
     
-    const dataCriacao = new Date(pedido.dataPedido);
+    const dataCriacao = new Date(pedido.data_pedido || pedido.dataPedido);
     const hoje = new Date();
     const dias = Math.floor((hoje - dataCriacao) / (1000 * 60 * 60 * 24));
     return dias;
@@ -157,19 +204,38 @@ export default function Compras() {
 
   // Verificar se pedido está atrasado
   const estaAtrasado = (pedido) => {
-    if (!pedido.previsaoEntrega) return false;
-    const previsao = new Date(pedido.previsaoEntrega);
+    if (!pedido.previsao_entrega && !pedido.previsaoEntrega) return false;
+    const previsao = new Date(pedido.previsao_entrega || pedido.previsaoEntrega);
     const hoje = new Date();
     return hoje > previsao && pedido.status !== 'recebido';
   };
 
-  const metricas = calcularMetricasFinanceiras();
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+        <Sidebar />
+        <Box sx={{ flexGrow: 1, p: 3, ml: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <CircularProgress />
+        </Box>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
       <Sidebar />
       
       <Box sx={{ flexGrow: 1, p: 3, ml: '64px' }}>
+        {/* Mostrar erro se houver */}
+        {erro && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {erro}
+            <Button size="small" onClick={carregarDados} sx={{ ml: 2 }}>
+              Tentar novamente
+            </Button>
+          </Alert>
+        )}
+
           {/* Header */}
         <Paper 
           elevation={0} 
@@ -379,14 +445,14 @@ export default function Compras() {
                           </Box>
                           
                           {/* Data do Pedido - FASE 2 */}
-                          {pedido.dataPedido && (
+                          {(pedido.data_pedido || pedido.dataPedido) && (
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                              📅 {new Date(pedido.dataPedido).toLocaleDateString('pt-BR')}
+                              📅 {new Date(pedido.data_pedido || pedido.dataPedido).toLocaleDateString('pt-BR')}
                             </Typography>
                           )}
                           
                           {/* Previsão de Entrega - FASE 2 */}
-                          {pedido.previsaoEntrega && (
+                          {(pedido.previsao_entrega || pedido.previsaoEntrega) && (
                             <Typography 
                               variant="caption" 
                               sx={{ 
@@ -395,7 +461,7 @@ export default function Compras() {
                                 color: estaAtrasado(pedido) ? '#f44336' : 'text.secondary'
                               }}
                             >
-                              ⏰ Previsão: {new Date(pedido.previsaoEntrega).toLocaleDateString('pt-BR')}
+                              ⏰ Previsão: {new Date(pedido.previsao_entrega || pedido.previsaoEntrega).toLocaleDateString('pt-BR')}
                             </Typography>
                           )}
                           
@@ -411,7 +477,7 @@ export default function Compras() {
                             Valor: {formatarValor(pedido.valor)}
                           </Typography>
                           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-                            {pedido.produtos.map((prod, idx) => (
+                            {(pedido.produtos || pedido.itens || []).map((prod, idx) => (
                               <Chip 
                                 key={idx}
                                 label={`${prod.sku} (${prod.quantidade})`}
@@ -423,7 +489,8 @@ export default function Compras() {
             <Box sx={{ 
                             display: 'flex', 
                             justifyContent: 'space-between', 
-                            mt: 1 
+                            mt: 1,
+                            gap: 0.5
             }}>
                             {/* Botão para voltar */}
                             {index > 0 && (
@@ -456,6 +523,20 @@ export default function Compras() {
                                 </IconButton>
                               </Tooltip>
                             )}
+
+                            {/* Botão para deletar */}
+                            <Tooltip title="Deletar pedido">
+                              <IconButton 
+                                size="small"
+                                color="error"
+                                onClick={() => setPedidoParaDeletar(pedido)}
+                                sx={{ 
+                                  '&:hover': { bgcolor: '#ffebee' }
+                                }}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </Tooltip>
             </Box>
                         </CardContent>
                       </Card>
@@ -467,7 +548,10 @@ export default function Compras() {
         </Grid>
 
         {/* Previsão de Compras */}
-        <PrevisaoCompras onAddToPedido={handleAddToPedido} />
+        <PrevisaoCompras onAddToPedido={(produto) => {
+          setProdutoParaAdicionar(produto);
+          setFormOpen(true);
+        }} />
 
         {/* Formulário de Novo Pedido */}
         <CompraForm
@@ -479,6 +563,27 @@ export default function Compras() {
           onSubmit={handleSubmitPedido}
           produtoInicial={produtoParaAdicionar}
         />
+
+        {/* Dialog de confirmação de exclusão */}
+        <Dialog open={!!pedidoParaDeletar} onClose={() => setPedidoParaDeletar(null)}>
+          <DialogTitle>Confirmar exclusão</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Tem certeza que deseja deletar o pedido #{pedidoParaDeletar?.id}? Esta ação não pode ser desfeita.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setPedidoParaDeletar(null)}>Cancelar</Button>
+            <Button 
+              color="error" 
+              variant="contained"
+              onClick={handleDeletePedido}
+              disabled={deletando}
+            >
+              {deletando ? 'Deletando...' : 'Deletar'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </Box>
   );

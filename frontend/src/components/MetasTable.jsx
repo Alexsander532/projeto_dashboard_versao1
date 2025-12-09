@@ -3,12 +3,13 @@ import {
   Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, TextField,
   LinearProgress, Box, Typography, Chip,
-  useTheme, alpha
+  useTheme, alpha, Tooltip, IconButton
 } from '@mui/material';
+import { Info as InfoIcon } from '@mui/icons-material';
 import { updateMeta } from '../services/metasService';
 import api from '../config/api';
 
-const MetasTable = ({ vendas, goals, marginGoals, onGoalChange, onMarginGoalChange }) => {
+const MetasTable = ({ vendas, goals, marginGoals, onGoalChange, onMarginGoalChange, selectedMonth, selectedYear }) => {
   const theme = useTheme();
   const [editingGoal, setEditingGoal] = useState({});
   const [editingMargin, setEditingMargin] = useState({});
@@ -31,8 +32,8 @@ const MetasTable = ({ vendas, goals, marginGoals, onGoalChange, onMarginGoalChan
   // Função para salvar meta (similar ao test-insert.js)
   const saveMeta = async (sku, metaVendas, metaMargem) => {
     try {
-      const currentDate = new Date();
-      const mesAno = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-01`;
+      // Usar o mês/ano selecionado em vez da data atual
+      const mesAno = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
 
       console.log(`Inserindo meta para SKU=${sku}, Vendas=${metaVendas}, Margem=${metaMargem}, Mês=${mesAno}`);
 
@@ -96,7 +97,30 @@ const MetasTable = ({ vendas, goals, marginGoals, onGoalChange, onMarginGoalChan
   const handleGoalBlur = async (sku) => {
     try {
       const value = editingGoal[sku];
-      if (!value) return;
+      
+      // Se o campo está vazio, deletar a meta
+      if (!value || value.trim() === '') {
+        const mesAno = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+        console.log(`Deletando meta de vendas para SKU=${sku}`);
+        
+        try {
+          await api.delete(`/api/metas/${sku}?mes_ano=${mesAno}`);
+          console.log('Meta deletada com sucesso');
+          
+          // Atualizar o estado global
+          onGoalChange(sku, 0);
+          
+          // Limpar o estado de edição
+          setEditingGoal(prev => {
+            const newState = { ...prev };
+            delete newState[sku];
+            return newState;
+          });
+        } catch (error) {
+          console.error('Erro ao deletar meta:', error);
+        }
+        return;
+      }
 
       const metaVendas = parseCurrencyToNumber(value);
       if (isNaN(metaVendas)) {
@@ -127,7 +151,30 @@ const MetasTable = ({ vendas, goals, marginGoals, onGoalChange, onMarginGoalChan
   const handleMarginBlur = async (sku) => {
     try {
       const value = editingMargin[sku];
-      if (!value) return;
+      
+      // Se o campo está vazio, deletar a meta
+      if (!value || value.trim() === '') {
+        const mesAno = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`;
+        console.log(`Deletando meta de margem para SKU=${sku}`);
+        
+        try {
+          await api.delete(`/api/metas/${sku}?mes_ano=${mesAno}`);
+          console.log('Meta deletada com sucesso');
+          
+          // Atualizar o estado global
+          onMarginGoalChange(sku, 0);
+          
+          // Limpar o estado de edição
+          setEditingMargin(prev => {
+            const newState = { ...prev };
+            delete newState[sku];
+            return newState;
+          });
+        } catch (error) {
+          console.error('Erro ao deletar meta:', error);
+        }
+        return;
+      }
 
       const metaMargem = parseFloat(value);
       if (isNaN(metaMargem)) {
@@ -231,18 +278,6 @@ const MetasTable = ({ vendas, goals, marginGoals, onGoalChange, onMarginGoalChan
                 backgroundColor: theme.palette.primary.main,
                 color: 'white',
                 fontWeight: 'bold',
-                '& .MuiTableSortLabel-root': {
-                  color: 'white',
-                  '&:hover': {
-                    color: alpha(theme.palette.common.white, 0.7),
-                  },
-                  '&.Mui-active': {
-                    color: 'white',
-                    '& .MuiTableSortLabel-icon': {
-                      color: 'white',
-                    },
-                  },
-                },
               }}
             >
               SKU
@@ -256,7 +291,12 @@ const MetasTable = ({ vendas, goals, marginGoals, onGoalChange, onMarginGoalChan
                 fontWeight: 'bold',
               }}
             >
-              Vendas Realizadas
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                Vendas Realizadas
+                <Tooltip title="Valor total de vendas realizadas por SKU no mês selecionado" arrow>
+                  <InfoIcon sx={{ fontSize: '1rem', cursor: 'pointer' }} />
+                </Tooltip>
+              </Box>
             </TableCell>
             <TableCell
               align="center"
@@ -267,7 +307,12 @@ const MetasTable = ({ vendas, goals, marginGoals, onGoalChange, onMarginGoalChan
                 fontWeight: 'bold',
               }}
             >
-              Meta de Vendas
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                Meta de Vendas
+                <Tooltip title="Valor de vendas que você deseja atingir para este SKU no mês. Clique para editar." arrow>
+                  <InfoIcon sx={{ fontSize: '1rem', cursor: 'pointer' }} />
+                </Tooltip>
+              </Box>
             </TableCell>
             <TableCell
               align="center"
@@ -278,7 +323,12 @@ const MetasTable = ({ vendas, goals, marginGoals, onGoalChange, onMarginGoalChan
                 fontWeight: 'bold',
               }}
             >
-              Progresso
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                Progresso
+                <Tooltip title="Percentual de progresso em relação à meta. Cálculo: (Vendas Realizadas ÷ Meta de Vendas) × 100%" arrow>
+                  <InfoIcon sx={{ fontSize: '1rem', cursor: 'pointer' }} />
+                </Tooltip>
+              </Box>
             </TableCell>
             <TableCell
               align="center"
@@ -289,7 +339,12 @@ const MetasTable = ({ vendas, goals, marginGoals, onGoalChange, onMarginGoalChan
                 fontWeight: 'bold',
               }}
             >
-              Margem Atual
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                Margem Atual
+                <Tooltip title="Percentual de lucro em relação às vendas realizadas. Cálculo: (Lucro ÷ Vendas) × 100%" arrow>
+                  <InfoIcon sx={{ fontSize: '1rem', cursor: 'pointer' }} />
+                </Tooltip>
+              </Box>
             </TableCell>
             <TableCell
               align="center"
@@ -300,7 +355,12 @@ const MetasTable = ({ vendas, goals, marginGoals, onGoalChange, onMarginGoalChan
                 fontWeight: 'bold',
               }}
             >
-              Meta de Margem
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                Meta de Margem
+                <Tooltip title="Percentual de margem que você deseja atingir para este SKU. Clique para editar." arrow>
+                  <InfoIcon sx={{ fontSize: '1rem', cursor: 'pointer' }} />
+                </Tooltip>
+              </Box>
             </TableCell>
           </TableRow>
         </TableHead>

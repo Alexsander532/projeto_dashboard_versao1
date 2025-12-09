@@ -12,35 +12,29 @@ const pool = new Pool({
   },
 });
 
-// Teste de conexão
+// Teste de conexão - DESABILITADO (usando apenas Supabase agora)
 pool.on('connect', () => {
-  console.log('Conectado ao banco de dados Railway (usado por outras rotas)');
+  console.log('✓ Pool PostgreSQL inicializado (fallback para rotas legadas)');
 });
 
 pool.on('error', (err) => {
-  console.error('Erro inesperado na conexão com o banco:', err);
-  process.exit(-1);
+  console.warn('⚠ Aviso: PostgreSQL não disponível. Usando Supabase para novas operações.');
+  // Não interrompe o servidor se PostgreSQL não estiver disponível
 });
 
 // Adicionar função de teste
 const testConnection = async () => {
   try {
     const client = await pool.connect();
-    console.log('Conexão de teste bem-sucedida!');
-    
-    // Testar uma consulta simples
     const res = await client.query('SELECT NOW() as time');
-    console.log('Hora do servidor:', res.rows[0].time);
-    
     client.release();
     return true;
   } catch (err) {
-    console.error('Erro ao testar conexão:', err);
+    // Silenciosamente falha se PostgreSQL não estiver disponível
     return false;
   }
 };
 
-// Executar teste de conexão ao iniciar
-testConnection();
+// Não executar teste de conexão na inicialização
 
 module.exports = pool; 

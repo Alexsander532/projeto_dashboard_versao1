@@ -231,8 +231,8 @@ const fetchMetricas = async (mesAno) => {
     // Extrair ano e mês diretamente da string para evitar problemas com timezone
     const [ano, mes, dia] = mesAno.split('-').map(Number);
     
-    // Formatar a data corretamente (sem ajuste de mês)
-    const formattedDate = `${ano}-${String(mes).padStart(2, '0')}-01`;
+    // Formatar a data corretamente para YYYY-MM (formato esperado pelo backend)
+    const formattedDate = `${ano}-${String(mes).padStart(2, '0')}`;
     console.log('Data formatada para API (sem ajuste):', formattedDate);
     
     // Usar a rota específica para métricas de metas
@@ -268,8 +268,8 @@ const fetchMetas = async (mesAno) => {
     // Extrair ano e mês diretamente da string para evitar problemas com timezone
     const [ano, mes, dia] = mesAno.split('-').map(Number);
     
-    // Formatar a data corretamente (sem ajuste de mês)
-    const formattedDate = `${ano}-${String(mes).padStart(2, '0')}-01`;
+    // Formatar a data corretamente para YYYY-MM (formato esperado pelo backend)
+    const formattedDate = `${ano}-${String(mes).padStart(2, '0')}`;
     console.log('Buscando metas para:', formattedDate);
     
     const response = await api.get(`/api/metas?mes_ano=${formattedDate}`);
@@ -308,8 +308,8 @@ const fetchVendas = async (mesAno) => {
     // Extrair ano e mês diretamente da string para evitar problemas com timezone
     const [ano, mes, dia] = mesAno.split('-').map(Number);
     
-    // Formatar a data corretamente (sem ajuste de mês)
-    const formattedDate = `${ano}-${String(mes).padStart(2, '0')}-01`;
+    // Formatar a data corretamente para YYYY-MM (formato esperado pelo backend)
+    const formattedDate = `${ano}-${String(mes).padStart(2, '0')}`;
     console.log('Data formatada para API (sem ajuste):', formattedDate);
     
     console.log('Buscando vendas por SKU para:', formattedDate);
@@ -677,6 +677,8 @@ const Metas = () => {
           marginGoals={marginGoals}
           onGoalChange={handleGoalChange}
           onMarginGoalChange={handleMarginGoalChange}
+          selectedMonth={selectedMonth}
+          selectedYear={selectedYear}
         />
         
         <Snackbar

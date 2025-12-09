@@ -17,9 +17,12 @@ import {
   Step,
   StepLabel,
   Alert,
-  Paper
+  Paper,
+  CircularProgress
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { fetchEstoque } from '../services/estoqueService';
+import { criarPedido } from '../services/comprasService';
 
 export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) {
   const [formData, setFormData] = useState({
@@ -33,19 +36,49 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
 
   const [produtoTemp, setProdutoTemp] = useState({
     sku: '',
-    quantidade: ''
+    quantidade: '',
+    precoCompra: 0
   });
 
-  const [produtos, setProdutos] = useState(() => {
-    const savedProdutos = localStorage.getItem('produtos');
-    return savedProdutos ? JSON.parse(savedProdutos) : [];
-  });
-
+  const [produtos, setProdutos] = useState([]);
   const [activeStep, setActiveStep] = useState(0);
   const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [carregandoProdutos, setCarregandoProdutos] = useState(false);
 
   // Passos do formulário - Novo order: Produtos → Dados → Confirmação
   const steps = ['Produtos', 'Dados Básicos', 'Confirmação'];
+
+  // Carregar produtos do banco de dados quando o diálogo abre
+  useEffect(() => {
+    if (open) {
+      const carregarProdutos = async () => {
+        try {
+          setCarregandoProdutos(true);
+          const dadosEstoque = await fetchEstoque();
+          console.log('📦 Dados do estoque carregados:', dadosEstoque.slice(0, 3));
+          // Mapear para formato compatível com Autocomplete
+          const produtosFormatados = dadosEstoque.map(item => ({
+            sku: item.sku,
+            nome: item.produto,
+            preco_compra: item.precoCompra || 0, // ← CORRIGIDO: usar precoCompra (camelCase)
+            id: item.sku // usar SKU como ID único
+          }));
+          console.log('💰 Produtos formatados (primeiros 3):', produtosFormatados.slice(0, 3));
+          setProdutos(produtosFormatados);
+        } catch (error) {
+          console.error('Erro ao carregar produtos:', error);
+          setErrors(prev => ({
+            ...prev,
+            produtos: 'Erro ao carregar produtos do estoque'
+          }));
+        } finally {
+          setCarregandoProdutos(false);
+        }
+      };
+      carregarProdutos();
+    }
+  }, [open]);
 
   useEffect(() => {
     if (open) {
@@ -72,7 +105,8 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
       }
       setProdutoTemp({
         sku: '',
-        quantidade: ''
+        quantidade: '',
+        precoCompra: 0
       });
     }
   }, [open, produtoInicial]);
@@ -101,7 +135,8 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
       }));
       setProdutoTemp({
         sku: '',
-        quantidade: ''
+        quantidade: '',
+        precoCompra: 0
       });
     }
   };
@@ -161,10 +196,62 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
     }
     
     setErrors({});
-    onSubmit({
-      ...formData,
-      valor: parseFloat(formData.valor) || 0
-    });
+    submitarPedido();
+  };
+
+  const submitarPedido = async () => {
+    try {
+      setLoading(true);
+      
+      // Preparar dados para enviar à API
+      const dadosPedido = {
+        fornecedor: formData.fornecedor,
+        valor: parseFloat(formData.valor) || 0,
+        dataPedido: formData.dataPedido,
+        previsaoEntrega: formData.previsaoEntrega || null,
+        observacoes: formData.observacoes || null,
+        produtos: formData.produtos.map(prod => ({
+          sku: prod.sku,
+          quantidade: parseInt(prod.quantidade) || 0,
+          precoCompra: parseFloat(prod.precoCompra) || 0
+        }))
+      };
+
+      console.log('📨 Enviando pedido para API:', dadosPedido);
+      
+      // Chamar a API de compras
+      const pedidoCriado = await criarPedido(dadosPedido);
+      
+      console.log('✅ Pedido criado com sucesso:', pedidoCriado);
+      
+      // Chamar callback do componente pai com o novo pedido
+      onSubmit({
+        ...dadosPedido,
+        id: pedidoCriado.id,
+        status: 'pedido',
+        created_at: pedidoCriado.created_at
+      });
+      
+      // Resetar formulário
+      setFormData({
+        fornecedor: '',
+        valor: '',
+        produtos: [],
+        previsaoEntrega: '',
+        dataPedido: new Date().toISOString().split('T')[0],
+        observacoes: ''
+      });
+      
+      setActiveStep(0);
+      setLoading(false);
+      onClose();
+    } catch (error) {
+      console.error('❌ Erro ao criar pedido:', error);
+      setErrors({
+        submit: error.response?.data?.error || 'Erro ao criar pedido. Tente novamente.'
+      });
+      setLoading(false);
+    }
   };
 
   // Calcula o valor total baseado nos produtos e seus preços de compra
@@ -210,6 +297,13 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
 
       <form onSubmit={handleSubmit}>
         <DialogContent sx={{ pt: 3 }}>
+          {/* Mensagem de erro geral */}
+          {errors.submit && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {errors.submit}
+            </Alert>
+          )}
+
           {/* Passo 0: Produtos (AGORA PRIMEIRO) */}
           {activeStep === 0 && (
             <Box>
@@ -223,8 +317,15 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
                   <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold' }}>
                     Adicionar Produto
                   </Typography>
-                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-                    <Autocomplete
+                  
+                  {carregandoProdutos ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CircularProgress size={20} />
+                      <Typography variant="body2">Carregando produtos...</Typography>
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+                      <Autocomplete
                       options={produtos}
                       getOptionLabel={(option) => `${option.sku} - ${option.nome}`}
                       value={produtos.find(p => p.sku === produtoTemp.sku) || null}
@@ -263,16 +364,18 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
                       Adicionar
                     </Button>
                   </Box>
-                </Box>
-              )}
+                )}
+              </Box>
+            )}
 
               {/* Lista de produtos selecionados */}
-              {formData.produtos.length > 0 ? (
-                <Paper sx={{ p: 2, bgcolor: 'background.default', mb: 2 }}>
-                  <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold' }}>
-                    ✅ {formData.produtos.length} Produto{formData.produtos.length > 1 ? 's' : ''} Selecionado{formData.produtos.length > 1 ? 's' : ''}
-                  </Typography>
-                  {formData.produtos.map((prod, index) => (
+              <>
+                {formData.produtos.length > 0 ? (
+                  <Paper sx={{ p: 2, bgcolor: 'background.default', mb: 2 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 'bold' }}>
+                      ✅ {formData.produtos.length} Produto{formData.produtos.length > 1 ? 's' : ''} Selecionado{formData.produtos.length > 1 ? 's' : ''}
+                    </Typography>
+                    {formData.produtos.map((prod, index) => (
                     <Box
                       key={index}
                       sx={{
@@ -328,17 +431,18 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
                       R$ {calcularValorTotal().toFixed(2)}
                     </Typography>
                   </Box>
-                </Paper>
-              ) : (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  Nenhum produto selecionado ainda
-                </Alert>
-              )}
-              {errors.produtos && (
-                <Alert severity="error" sx={{ mt: 2 }}>
-                  {errors.produtos}
-                </Alert>
-              )}
+                  </Paper>
+                ) : (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    Nenhum produto selecionado ainda
+                  </Alert>
+                )}
+                {errors.produtos && (
+                  <Alert severity="error" sx={{ mt: 2 }}>
+                    {errors.produtos}
+                  </Alert>
+                )}
+              </>
             </Box>
           )}
 
@@ -498,10 +602,10 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
         </DialogContent>
 
         <DialogActions sx={{ p: 2 }}>
-          <Button onClick={onClose}>Cancelar</Button>
+          <Button onClick={onClose} disabled={loading}>Cancelar</Button>
           
           {activeStep > 0 && (
-            <Button onClick={() => setActiveStep(activeStep - 1)}>
+            <Button onClick={() => setActiveStep(activeStep - 1)} disabled={loading}>
               Voltar
             </Button>
           )}
@@ -541,6 +645,7 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
                 setErrors({});
                 setActiveStep(activeStep + 1);
               }}
+              disabled={loading}
             >
               Próximo
             </Button>
@@ -549,8 +654,10 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
               type="submit" 
               variant="contained"
               color="success"
+              disabled={loading}
             >
-              Criar Pedido
+              {loading ? <CircularProgress size={24} sx={{ mr: 1 }} /> : null}
+              {loading ? 'Criando...' : 'Criar Pedido'}
             </Button>
           )}
         </DialogActions>
