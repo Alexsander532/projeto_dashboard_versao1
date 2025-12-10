@@ -235,8 +235,9 @@ const fetchMetricas = async (mesAno) => {
     const formattedDate = `${ano}-${String(mes).padStart(2, '0')}`;
     console.log('Data formatada para API (sem ajuste):', formattedDate);
     
-    // Usar a rota específica para métricas de metas
-    const response = await api.get(`/api/vendas/metricas-metas?mes_ano=${formattedDate}`);
+    // Usar a rota específica para métricas de metas com timestamp para evitar cache
+    const timestamp = new Date().getTime();
+    const response = await api.get(`/api/vendas/metricas-metas?mes_ano=${formattedDate}&t=${timestamp}`);
     
     // Log detalhado para depuração
     console.log('Resposta bruta da API métricas para metas:', response.data);
@@ -272,7 +273,9 @@ const fetchMetas = async (mesAno) => {
     const formattedDate = `${ano}-${String(mes).padStart(2, '0')}`;
     console.log('Buscando metas para:', formattedDate);
     
-    const response = await api.get(`/api/metas?mes_ano=${formattedDate}`);
+    // Adicionar timestamp para evitar cache
+    const timestamp = new Date().getTime();
+    const response = await api.get(`/api/metas?mes_ano=${formattedDate}&t=${timestamp}`);
     console.log('Resposta da API de metas:', response.data);
     
     // Processar os dados para o formato esperado pelo componente
@@ -313,7 +316,9 @@ const fetchVendas = async (mesAno) => {
     console.log('Data formatada para API (sem ajuste):', formattedDate);
     
     console.log('Buscando vendas por SKU para:', formattedDate);
-    const response = await api.get(`/api/vendas/por-sku?mes_ano=${formattedDate}`);
+    // Adicionar timestamp para evitar cache
+    const timestamp = new Date().getTime();
+    const response = await api.get(`/api/vendas/por-sku?mes_ano=${formattedDate}&t=${timestamp}`);
     
     if (!Array.isArray(response.data)) {
       console.error('Formato de dados inválido:', response.data);
