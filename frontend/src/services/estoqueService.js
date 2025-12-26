@@ -234,4 +234,29 @@ export const atualizarQuantidade = async (sku, delta) => {
         console.error('Erro ao atualizar quantidade:', error);
         throw error;
     }
-}; 
+};
+
+export const buscarProdutos = async () => {
+    try {
+        const response = await api.get('/api/estoque');
+        return response.data.map(item => ({
+            id: Number(item.id),
+            sku: item.sku,
+            produto: item.sku,
+            estoque: Number(item.total) || 0,
+            minimo: Number(item.minimo) || 0,
+            precoCompra: Number(item.preco_compra) || 0,
+            preco_unitario: Number(item.preco_compra) || 0,
+            valorLiquidoMedio: Number(item.valorLiquidoMedio) || 0,
+            status: item.status || 'Em estoque',
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+            bling: Number(item.bling) || 0,
+            full_ml: Number(item.full_ml) || 0,
+            magalu: Number(item.magalu) || 0,
+        }));
+    } catch (error) {
+        console.error('Erro ao buscar produtos:', error);
+        throw error;
+    }
+};

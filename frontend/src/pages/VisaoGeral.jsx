@@ -18,11 +18,13 @@ import {
   BarChart, Bar
 } from 'recharts';
 import axios from 'axios';
+import { useSidebar } from '../contexts/SidebarContext';
 import Sidebar from '../components/Sidebar';
 import api from '../config/api';
 
 function VisaoGeral() {
   const theme = useTheme();
+  const { isHovered } = useSidebar();
   const [overviewData, setOverviewData] = useState({
     totalVendas: 0,
     totalLucro: 0,
@@ -46,7 +48,6 @@ function VisaoGeral() {
       categorias: []
     }
   });
-  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -122,25 +123,15 @@ function VisaoGeral() {
       width: '100%',
       height: '100vh',
     }}>
-      <Sidebar 
-        open={sidebarOpen} 
-        onToggle={handleToggleSidebar}
-        sx={{ 
-          width: 240,
-          flexShrink: 0,
-          position: 'fixed',
-          left: 0,
-          top: 0,
-          height: '100%'
-        }}
-      />
+      <Sidebar />
       
       <Box
         component="main"
         sx={{
           flexGrow: 1,
           p: 3,
-          marginLeft: '50px',
+          ml: isHovered ? '200px' : '64px',
+          transition: 'margin-left 0.3s ease',
           height: '100vh',
           overflow: 'auto',
           bgcolor: 'background.default',

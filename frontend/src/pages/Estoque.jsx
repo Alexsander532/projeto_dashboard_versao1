@@ -16,18 +16,19 @@ import { useTheme } from '@mui/material/styles';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { useTheme as useAppTheme } from '../contexts/ThemeContext';
+import { useSidebar } from '../contexts/SidebarContext';
 import { fetchEstoque } from '../services/estoqueService';
 import Sidebar from '../components/Sidebar';
 
 export default function Estoque() {
   const theme = useTheme();
   const { isDark, setIsDark } = useAppTheme();
+  const { isHovered } = useSidebar();
   const [metricas, setMetricas] = useState({
     totalEstoque: 0,
     valorTotal: 0,
     estoqueCritico: 0,
   });
-  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const handleMetricasUpdate = (novasMetricas) => {
     setMetricas(novasMetricas);
@@ -283,35 +284,21 @@ export default function Estoque() {
     return 'estoque alto';
   };
 
-  const handleToggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
-  };
-
   return (
     <Box sx={{ 
       display: 'flex',
       width: '100%',
       height: '100vh',
     }}>
-      <Sidebar 
-        open={sidebarOpen} 
-        onToggle={handleToggleSidebar}
-        sx={{ 
-          width: 240,
-          flexShrink: 0,
-          position: 'fixed',
-          left: 0,
-          top: 0,
-          height: '100%'
-        }}
-      />
+      <Sidebar />
       
       <Box
         component="main"
         sx={{
           flexGrow: 1,
           p: 3,
-          marginLeft: '50px',
+          ml: isHovered ? '200px' : '64px',
+          transition: 'margin-left 0.3s ease',
           height: '100vh',
           overflow: 'auto',
           bgcolor: 'background.default',

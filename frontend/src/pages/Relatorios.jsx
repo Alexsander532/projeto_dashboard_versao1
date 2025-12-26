@@ -1,7 +1,10 @@
 import { Box, Typography, Container } from '@mui/material';
+import { useSidebar } from '../contexts/SidebarContext';
 import Sidebar from '../components/Sidebar';
 
 function Relatorios() {
+  const { isHovered } = useSidebar();
+  
   return (
     <Box sx={{ 
       display: 'flex',
@@ -9,7 +12,11 @@ function Relatorios() {
       backgroundColor: theme => theme.palette.background.default
     }}>
       <Sidebar />
-      <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Container maxWidth="xl" sx={{ 
+        py: 4,
+        ml: isHovered ? '200px' : '64px',
+        transition: 'margin-left 0.3s ease'
+      }}>
         <Typography variant="h4" sx={{ mb: 4 }}>
           Relatórios
         </Typography>
@@ -19,4 +26,4 @@ function Relatorios() {
   );
 }
 
-export default Relatorios; 
+export default Relatorios;

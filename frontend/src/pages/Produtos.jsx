@@ -9,10 +9,12 @@ import {
 import { Add as AddIcon } from '@mui/icons-material';
 import ProdutosTable from '../components/ProdutosTable';
 import ProdutoForm from '../components/ProdutoForm';
+import { useSidebar } from '../contexts/SidebarContext';
 import Sidebar from '../components/Sidebar';
 
 export default function Produtos() {
   const theme = useTheme();
+  const { isHovered } = useSidebar();
   const [formOpen, setFormOpen] = useState(false);
 
   return (
@@ -21,7 +23,12 @@ export default function Produtos() {
       <Sidebar />
       
       {/* Conteúdo Principal */}
-      <Box sx={{ flexGrow: 1, p: 3, ml: '64px' }}>
+      <Box sx={{ 
+        flexGrow: 1, 
+        p: 3, 
+        ml: isHovered ? '200px' : '64px',
+        transition: 'margin-left 0.3s ease'
+      }}>
         {/* Header */}
         <Paper 
           elevation={0} 

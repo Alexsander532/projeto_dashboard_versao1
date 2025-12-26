@@ -235,6 +235,101 @@ async function deletarPedido(id) {
 }
 
 /**
+ * Buscar histórico de movimentações de um pedido
+ */
+async function buscarHistoricoPedido(pedidoId) {
+  try {
+    const { data, error } = await supabase
+      .from('historico_pedidos_compra')
+      .select('*')
+      .eq('pedido_id', pedidoId)
+      .order('data_movimentacao', { ascending: false });
+
+    if (error) {
+      console.error('Erro ao buscar histórico:', error);
+      throw error;
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Erro em buscarHistoricoPedido:', error);
+    throw error;
+  }
+}
+
+/**
+ * Atualizar pedido completo incluindo itens
+ */
+async function atualizarPedidoCompleto(id, dadosAtualizados) {
+  try {
+    const { fornecedor, valor, dataPedido, previsaoEntrega, observacoes, status, produtos } = dadosAtualizados;
+
+    // 1. Atualizar dados do pedido
+    const dadosParaAtualizar = {};
+    if (fornecedor !== undefined) dadosParaAtualizar.fornecedor = fornecedor;
+    if (valor !== undefined) dadosParaAtualizar.valor = valor;
+    if (dataPedido !== undefined) dadosParaAtualizar.data_pedido = dataPedido;
+    if (previsaoEntrega !== undefined) dadosParaAtualizar.previsao_entrega = previsaoEntrega;
+    if (observacoes !== undefined) dadosParaAtualizar.observacoes = observacoes;
+    if (status !== undefined) dadosParaAtualizar.status = status;
+
+    const { data: pedidoAtualizado, error: pedidoError } = await supabase
+      .from('pedidos_compra')
+      .update(dadosParaAtualizar)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (pedidoError) {
+      console.error('Erro ao atualizar pedido:', pedidoError);
+      throw pedidoError;
+    }
+
+    // 2. Se produtos foram enviados, atualizar itens
+    if (produtos && produtos.length > 0) {
+      // Deletar itens antigos
+      const { error: deleteError } = await supabase
+        .from('itens_pedido_compra')
+        .delete()
+        .eq('pedido_id', id);
+
+      if (deleteError) {
+        console.error('Erro ao deletar itens antigos:', deleteError);
+        throw deleteError;
+      }
+
+      // Inserir novos itens
+      const itensParaInserir = produtos.map(prod => ({
+        pedido_id: id,
+        sku: prod.sku,
+        quantidade: prod.quantidade,
+        preco_unitario: prod.precoCompra || prod.preco_unitario || 0
+      }));
+
+      const { data: novosItens, error: itensError } = await supabase
+        .from('itens_pedido_compra')
+        .insert(itensParaInserir)
+        .select();
+
+      if (itensError) {
+        console.error('Erro ao inserir novos itens:', itensError);
+        throw itensError;
+      }
+
+      return {
+        ...pedidoAtualizado,
+        produtos: novosItens
+      };
+    }
+
+    return pedidoAtualizado;
+  } catch (error) {
+    console.error('Erro em atualizarPedidoCompleto:', error);
+    throw error;
+  }
+}
+
+/**
  * Buscar métricas financeiras dos pedidos
  */
 async function buscarMetricasFinanceiras() {
@@ -298,6 +393,8 @@ module.exports = {
   buscarPedidoPorId,
   atualizarStatusPedido,
   atualizarPedido,
+  atualizarPedidoCompleto,
   deletarPedido,
-  buscarMetricasFinanceiras
+  buscarMetricasFinanceiras,
+  buscarHistoricoPedido
 };

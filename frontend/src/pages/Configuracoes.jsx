@@ -21,6 +21,7 @@ import {
   DialogContentText,
   useTheme
 } from '@mui/material';
+import { useSidebar } from '../contexts/SidebarContext';
 import {
   AccountCircle,
   Logout as LogoutIcon,
@@ -36,6 +37,7 @@ import { useTheme as useAppTheme } from '../contexts/ThemeContext';
 
 function Configuracoes() {
   const theme = useTheme();
+  const { isHovered } = useSidebar();
   const { user, logout } = useAuth();
   const { isDark, setIsDark } = useAppTheme();
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
@@ -66,7 +68,7 @@ function Configuracoes() {
       <Sidebar />
       <Box sx={{ 
         flexGrow: 1,
-        ml: { xs: 0, sm: '240px' }, // Margem para compensar a sidebar
+        ml: isHovered ? '200px' : '64px',
         transition: 'margin-left 0.3s ease'
       }}>
         <Container maxWidth="xl" sx={{ py: 4, px: { xs: 2, sm: 4 } }}>

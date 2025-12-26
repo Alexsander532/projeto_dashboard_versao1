@@ -14,6 +14,7 @@ import axios from 'axios';
 import PerformanceAlert from '../components/PerformanceAlert';
 import { format } from 'date-fns';
 import ptBR from 'date-fns/locale/pt-BR';
+import { useSidebar } from '../contexts/SidebarContext';
 import { 
   Store as StoreIcon,
   ShoppingCart as ShoppingCartIcon,
@@ -370,6 +371,7 @@ const updateMeta = async (sku, data) => {
 
 const Metas = () => {
   const theme = useTheme();
+  const { isHovered } = useSidebar();
   const { isDark, setIsDark } = useAppTheme();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -534,10 +536,10 @@ const Metas = () => {
         sx={{ 
       display: 'flex',
           flexDirection: 'column',
-          ml: '64px',
-          width: 'calc(100% - 64px)',
+          ml: isHovered ? '200px' : '64px',
+          width: isHovered ? 'calc(100% - 200px)' : 'calc(100% - 64px)',
           p: 3,
-          transition: 'margin-left 0.2s, width 0.2s',
+          transition: 'margin-left 0.3s ease, width 0.3s ease',
           '& .MuiGrid-container': {
             marginLeft: 0,
             marginRight: 0,

@@ -59,7 +59,7 @@ export const atualizarStatusPedido = async (id, novoStatus) => {
 };
 
 /**
- * Atualizar pedido completo
+ * Atualizar pedido completo (incluindo itens)
  */
 export const atualizarPedido = async (id, dadosAtualizados) => {
   try {
@@ -67,6 +67,19 @@ export const atualizarPedido = async (id, dadosAtualizados) => {
     return response.data;
   } catch (error) {
     console.error('Erro ao atualizar pedido:', error);
+    throw error;
+  }
+};
+
+/**
+ * Buscar histórico de movimentações de um pedido
+ */
+export const buscarHistoricoPedido = async (id) => {
+  try {
+    const response = await api.get(`/api/compras/${id}/historico`);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao buscar histórico:', error);
     throw error;
   }
 };

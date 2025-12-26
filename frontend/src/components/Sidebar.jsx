@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Box,
   List,
@@ -19,12 +19,13 @@ import {
   ShoppingBasket as ShoppingBasketIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useSidebar } from '../contexts/SidebarContext';
 
 export default function Sidebar() {
   const theme = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
-  const [isHovered, setIsHovered] = useState(false);
+  const { isHovered, handleMouseEnter, handleMouseLeave } = useSidebar();
 
   const menuItems = [
     { text: 'Mercado Livre', icon: <ShoppingCartIcon />, path: '/mercado-livre' },
@@ -39,22 +40,22 @@ export default function Sidebar() {
 
   return (
     <Box
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       sx={{
         width: isHovered ? 200 : 64,
-        height: '70vh',
+        height: '100vh',
         backgroundColor: theme.palette.background.paper,
         position: 'fixed',
         left: 0,
-        top: '50%',
-        transform: 'translateY(-50%)',
+        top: 0,
         zIndex: 1200,
         borderRadius: '0 16px 16px 0',
         boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.05)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
+        justifyContent: 'center',
         py: 2,
         transition: 'all 0.3s ease',
         overflow: 'hidden',

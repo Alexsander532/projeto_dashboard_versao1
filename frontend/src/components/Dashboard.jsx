@@ -26,6 +26,7 @@ import {
   NotificationsNone as NotificationsIcon
 } from '@mui/icons-material';
 import { useTheme as useAppTheme } from '../contexts/ThemeContext';
+import { useSidebar } from '../contexts/SidebarContext';
 import Sidebar from './Sidebar';
 import DashboardCharts from './DashboardCharts';
 import MetricCard from './MetricCard';
@@ -37,7 +38,7 @@ import api from '../config/api';
 export default function Dashboard({ marketplace = 'mercadolivre' }) {
   const theme = useTheme();
   const { isDark, setIsDark } = useAppTheme();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { isHovered } = useSidebar();
   const [metricas, setMetricas] = useState({
     vendasTotais: 0,
     despesas: 0,
@@ -179,25 +180,15 @@ export default function Dashboard({ marketplace = 'mercadolivre' }) {
       width: '100%',
       height: '100vh',
     }}>
-      <Sidebar 
-        open={sidebarOpen} 
-        onToggle={handleToggleSidebar}
-        sx={{ 
-          width: 240,
-          flexShrink: 0,
-          position: 'fixed',
-          left: 0,
-          top: 0,
-          height: '100%'
-        }}
-      />
+      <Sidebar />
       
       <Box
         component="main"
         sx={{
           flexGrow: 1,
           p: 3,
-          marginLeft: '50px', // Espaço para o sidebar
+          ml: isHovered ? '200px' : '64px',
+          transition: 'margin-left 0.3s ease',
           height: '100vh',
           overflow: 'auto', // Permite scroll apenas no conteúdo
           bgcolor: 'background.default',

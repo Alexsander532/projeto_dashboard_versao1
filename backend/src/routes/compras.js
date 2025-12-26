@@ -7,8 +7,10 @@ const {
   buscarPedidoPorId,
   atualizarStatusPedido,
   atualizarPedido,
+  atualizarPedidoCompleto,
   deletarPedido,
-  buscarMetricasFinanceiras
+  buscarMetricasFinanceiras,
+  buscarHistoricoPedido
 } = require('../services/comprasService');
 
 const router = express.Router();
@@ -70,6 +72,25 @@ router.get('/metricas', async (req, res) => {
 });
 
 /**
+ * GET /api/compras/:id/historico
+ * Buscar histórico de movimentações de um pedido
+ * IMPORTANTE: Esta rota deve vir ANTES de /:id para não conflitar
+ */
+router.get('/:id/historico', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const historico = await buscarHistoricoPedido(id);
+    res.json(historico);
+  } catch (error) {
+    console.error('Erro na rota GET /compras/:id/historico:', error);
+    res.status(500).json({
+      error: 'Erro ao buscar histórico',
+      details: error.message
+    });
+  }
+});
+
+/**
  * GET /api/compras/:id
  * Buscar pedido específico por ID
  */
@@ -118,12 +139,12 @@ router.put('/:id/status', async (req, res) => {
 
 /**
  * PUT /api/compras/:id
- * Atualizar pedido completo (exceto itens)
+ * Atualizar pedido completo (incluindo itens)
  */
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const pedido = await atualizarPedido(id, req.body);
+    const pedido = await atualizarPedidoCompleto(id, req.body);
     res.json(pedido);
   } catch (error) {
     console.error('Erro na rota PUT /compras/:id:', error);

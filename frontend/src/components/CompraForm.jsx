@@ -22,9 +22,9 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { fetchEstoque } from '../services/estoqueService';
-import { criarPedido } from '../services/comprasService';
+import { criarPedido, atualizarPedido } from '../services/comprasService';
 
-export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) {
+export default function CompraForm({ open, onClose, onSubmit, produtoInicial, pedidoParaEditar }) {
   const [formData, setFormData] = useState({
     fornecedor: '',
     valor: '',
@@ -82,7 +82,25 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
 
   useEffect(() => {
     if (open) {
-      if (produtoInicial) {
+      if (pedidoParaEditar) {
+        // Modo edição: carregar dados do pedido existente
+        setFormData({
+          fornecedor: pedidoParaEditar.fornecedor || '',
+          valor: pedidoParaEditar.valor?.toString() || '',
+          produtos: (pedidoParaEditar.produtos || []).map(p => ({
+            sku: p.sku,
+            quantidade: p.quantidade,
+            precoCompra: p.preco_unitario || p.precoCompra || 0
+          })),
+          previsaoEntrega: pedidoParaEditar.previsao_entrega 
+            ? new Date(pedidoParaEditar.previsao_entrega).toISOString().split('T')[0] 
+            : '',
+          dataPedido: pedidoParaEditar.data_pedido 
+            ? new Date(pedidoParaEditar.data_pedido).toISOString().split('T')[0] 
+            : new Date().toISOString().split('T')[0],
+          observacoes: pedidoParaEditar.observacoes || ''
+        });
+      } else if (produtoInicial) {
         // Se houver um produto inicial, adiciona ele automaticamente com quantidade corrigida
         setFormData(prev => ({
           ...prev,
@@ -108,8 +126,9 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
         quantidade: '',
         precoCompra: 0
       });
+      setActiveStep(0);
     }
-  }, [open, produtoInicial]);
+  }, [open, produtoInicial, pedidoParaEditar]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -165,9 +184,7 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
     // Validações
     const novosErros = {};
     
-    if (!formData.fornecedor.trim()) {
-      novosErros.fornecedor = 'Fornecedor é obrigatório';
-    }
+    // Fornecedor agora é opcional
     
     if (!formData.dataPedido) {
       novosErros.dataPedido = 'Data do pedido é obrigatória';
@@ -205,7 +222,7 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
       
       // Preparar dados para enviar à API
       const dadosPedido = {
-        fornecedor: formData.fornecedor,
+        fornecedor: formData.fornecedor || null,
         valor: parseFloat(formData.valor) || 0,
         dataPedido: formData.dataPedido,
         previsaoEntrega: formData.previsaoEntrega || null,
@@ -217,19 +234,26 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
         }))
       };
 
-      console.log('📨 Enviando pedido para API:', dadosPedido);
+      let resultado;
       
-      // Chamar a API de compras
-      const pedidoCriado = await criarPedido(dadosPedido);
+      if (pedidoParaEditar) {
+        // Modo edição: atualizar pedido existente
+        console.log('📝 Atualizando pedido:', pedidoParaEditar.id, dadosPedido);
+        resultado = await atualizarPedido(pedidoParaEditar.id, dadosPedido);
+        console.log('✅ Pedido atualizado com sucesso:', resultado);
+      } else {
+        // Modo criação: criar novo pedido
+        console.log('📨 Enviando pedido para API:', dadosPedido);
+        resultado = await criarPedido(dadosPedido);
+        console.log('✅ Pedido criado com sucesso:', resultado);
+      }
       
-      console.log('✅ Pedido criado com sucesso:', pedidoCriado);
-      
-      // Chamar callback do componente pai com o novo pedido
+      // Chamar callback do componente pai
       onSubmit({
         ...dadosPedido,
-        id: pedidoCriado.id,
-        status: 'pedido',
-        created_at: pedidoCriado.created_at
+        id: resultado.id,
+        status: resultado.status || 'pedido',
+        created_at: resultado.created_at
       });
       
       // Resetar formulário
@@ -246,9 +270,9 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
       setLoading(false);
       onClose();
     } catch (error) {
-      console.error('❌ Erro ao criar pedido:', error);
+      console.error('❌ Erro ao salvar pedido:', error);
       setErrors({
-        submit: error.response?.data?.error || 'Erro ao criar pedido. Tente novamente.'
+        submit: error.response?.data?.error || 'Erro ao salvar pedido. Tente novamente.'
       });
       setLoading(false);
     }
@@ -283,7 +307,11 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
       fullWidth
     >
       <DialogTitle>
-        {produtoInicial ? 'Criar Pedido de Compra para Reposição' : 'Novo Pedido de Compra'}
+        {pedidoParaEditar 
+          ? `Editar Pedido #${pedidoParaEditar.id}` 
+          : produtoInicial 
+            ? 'Criar Pedido de Compra para Reposição' 
+            : 'Novo Pedido de Compra'}
       </DialogTitle>
       
       {/* Stepper para visualizar progresso */}
@@ -456,7 +484,6 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <TextField
-                    required
                     name="fornecedor"
                     label="Fornecedor"
                     fullWidth
@@ -626,9 +653,8 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
 
                 // Validação do Passo 1: Dados Básicos
                 if (activeStep === 1) {
-                  if (!formData.fornecedor.trim()) novosErros.fornecedor = 'Obrigatório';
+                  // Fornecedor agora é opcional
                   if (!formData.dataPedido) novosErros.dataPedido = 'Obrigatório';
-                  if (!formData.previsaoEntrega) novosErros.previsaoEntrega = 'Obrigatório';
                   if (formData.previsaoEntrega && formData.dataPedido) {
                     const dataPedido = new Date(formData.dataPedido);
                     const previsaoEntrega = new Date(formData.previsaoEntrega);
@@ -657,7 +683,7 @@ export default function CompraForm({ open, onClose, onSubmit, produtoInicial }) 
               disabled={loading}
             >
               {loading ? <CircularProgress size={24} sx={{ mr: 1 }} /> : null}
-              {loading ? 'Criando...' : 'Criar Pedido'}
+              {loading ? 'Salvando...' : pedidoParaEditar ? 'Salvar Alterações' : 'Criar Pedido'}
             </Button>
           )}
         </DialogActions>

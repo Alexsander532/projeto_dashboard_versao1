@@ -12,12 +12,22 @@ import {
   Chip,
   IconButton,
   Tooltip,
-  useTheme
+  useTheme,
+  Checkbox,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Alert
 } from '@mui/material';
 import {
   AddShoppingCart as AddShoppingCartIcon,
   Warning as WarningIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  ShoppingCart as ShoppingCartIcon,
+  Check as CheckIcon,
+  Clear as ClearIcon
 } from '@mui/icons-material';
 import { useTheme as useMuiTheme } from '@mui/material/styles';
 import { fetchEstoque } from '../services/estoqueService';
@@ -25,6 +35,8 @@ import { fetchEstoque } from '../services/estoqueService';
 export default function PrevisaoCompras({ onAddToPedido }) {
   const theme = useMuiTheme();
   const [previsoes, setPrevisoes] = useState([]);
+  const [selecionados, setSelecionados] = useState(new Set());
+  const [dialogAberto, setDialogAberto] = useState(false);
 
   // Ordem de prioridade para sorting
   const statusPriority = {
@@ -32,6 +44,45 @@ export default function PrevisaoCompras({ onAddToPedido }) {
     'Em reposição': 2,
     'Em negociação': 3
   };
+
+  // Gerenciar seleção individual
+  const toggleSelecao = (sku) => {
+    const novo = new Set(selecionados);
+    if (novo.has(sku)) {
+      novo.delete(sku);
+    } else {
+      novo.add(sku);
+    }
+    setSelecionados(novo);
+  };
+
+  // Selecionar/desselecionar todos
+  const toggleSelecionarTodos = () => {
+    if (selecionados.size === previsoes.length) {
+      setSelecionados(new Set());
+    } else {
+      setSelecionados(new Set(previsoes.map(p => p.sku)));
+    }
+  };
+
+  // Gerar pedido consolidado
+  const gerarPedidoConsolidado = () => {
+    const itensSelect = previsoes.filter(p => selecionados.has(p.sku));
+    if (itensSelect.length === 0) return;
+
+    // Chamar a função para cada item (ou consolidar em um pedido único)
+    itensSelect.forEach(item => {
+      onAddToPedido(item);
+    });
+
+    setSelecionados(new Set());
+    setDialogAberto(false);
+  };
+
+  // Calcular totais dos itens selecionados
+  const itensSelecionados = previsoes.filter(p => selecionados.has(p.sku));
+  const totalQtd = itensSelecionados.reduce((sum, item) => sum + item.quantidadeParaComprar, 0);
+  const totalValor = itensSelecionados.reduce((sum, item) => sum + (item.quantidadeParaComprar * item.precoCompra), 0);
 
   // Cores de background para cada status
   const statusBgColor = {
@@ -170,10 +221,48 @@ export default function PrevisaoCompras({ onAddToPedido }) {
         </Box>
       </Box>
 
+      {selecionados.size > 0 && (
+        <Alert 
+          severity="info" 
+          sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+        >
+          <Box>
+            <Typography variant="body2">
+              <strong>{selecionados.size}</strong> produto(s) selecionado(s) • <strong>{totalQtd}</strong> unidades • <strong>{formatarMoeda(totalValor)}</strong>
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button 
+              variant="contained" 
+              size="small"
+              startIcon={<ShoppingCartIcon />}
+              onClick={() => setDialogAberto(true)}
+            >
+              Gerar Pedido Único
+            </Button>
+            <Button 
+              variant="outlined" 
+              size="small"
+              startIcon={<ClearIcon />}
+              onClick={() => setSelecionados(new Set())}
+            >
+              Limpar
+            </Button>
+          </Box>
+        </Alert>
+      )}
+
       <TableContainer>
         <Table>
           <TableHead>
             <TableRow sx={{ backgroundColor: theme.palette.mode === 'dark' ? '#1e1e1e' : '#f5f5f5' }}>
+              <TableCell padding="checkbox" sx={{ width: '50px' }}>
+                <Checkbox 
+                  checked={selecionados.size === previsoes.length && previsoes.length > 0}
+                  indeterminate={selecionados.size > 0 && selecionados.size < previsoes.length}
+                  onChange={toggleSelecionarTodos}
+                />
+              </TableCell>
               <TableCell>
                 <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
                   SKU
@@ -241,13 +330,23 @@ export default function PrevisaoCompras({ onAddToPedido }) {
               <TableRow 
                 key={item.sku}
                 sx={{
-                  backgroundColor: statusBgColor[item.status] || 'transparent',
+                  backgroundColor: selecionados.has(item.sku) 
+                    ? `${theme.palette.primary.main}15`
+                    : statusBgColor[item.status] || 'transparent',
                   '&:hover': {
-                    backgroundColor: statusBgColor[item.status] ? `${statusBgColor[item.status]}dd` : theme.palette.action.hover,
+                    backgroundColor: selecionados.has(item.sku)
+                      ? `${theme.palette.primary.main}25`
+                      : statusBgColor[item.status] ? `${statusBgColor[item.status]}dd` : theme.palette.action.hover,
                   },
                   transition: 'background-color 0.2s ease'
                 }}
               >
+                <TableCell padding="checkbox">
+                  <Checkbox 
+                    checked={selecionados.has(item.sku)}
+                    onChange={() => toggleSelecao(item.sku)}
+                  />
+                </TableCell>
                 <TableCell>{item.sku}</TableCell>
                 <TableCell align="center">
                   <Chip 
@@ -317,6 +416,62 @@ export default function PrevisaoCompras({ onAddToPedido }) {
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* Dialog de Confirmação do Pedido Consolidado */}
+      <Dialog open={dialogAberto} onClose={() => setDialogAberto(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <ShoppingCartIcon />
+            Gerar Pedido Consolidado
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Você está prestes a criar um pedido único consolidando todos os itens selecionados.
+            </Typography>
+            
+            <Paper sx={{ p: 2, bgcolor: theme.palette.mode === 'dark' ? '#1e1e1e' : '#f5f5f5' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                Resumo do Pedido:
+              </Typography>
+              
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="body2">Produtos selecionados:</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{itensSelecionados.length}</Typography>
+              </Box>
+              
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="body2">Total de unidades:</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>{totalQtd}</Typography>
+              </Box>
+              
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="body2">Valor total:</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 'bold', color: theme.palette.success.main }}>
+                  {formatarMoeda(totalValor)}
+                </Typography>
+              </Box>
+            </Paper>
+
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+              Os itens serão adicionados ao pedido de compra. Você poderá revisar antes de enviar.
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogAberto(false)}>
+            Cancelar
+          </Button>
+          <Button 
+            onClick={gerarPedidoConsolidado} 
+            variant="contained"
+            startIcon={<CheckIcon />}
+          >
+            Confirmar e Gerar Pedido
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 } 
