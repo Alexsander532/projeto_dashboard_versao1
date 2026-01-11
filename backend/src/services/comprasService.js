@@ -17,7 +17,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
  */
 async function criarPedido(dadosPedido) {
   try {
-    const { fornecedor, valor, dataPedido, previsaoEntrega, observacoes, produtos } = dadosPedido;
+    const { fornecedor, valor, dataPedido, previsaoEntrega, observacoes, produtos, prazos } = dadosPedido;
 
     // 1. Criar pedido principal
     const { data: pedido, error: pedidoError } = await supabase
@@ -28,7 +28,10 @@ async function criarPedido(dadosPedido) {
         data_pedido: dataPedido,
         previsao_entrega: previsaoEntrega || null,
         observacoes: observacoes || null,
-        status: 'pedido'
+        status: 'pedido',
+        prazo_fabricacao: prazos?.fabricacao || 0,
+        prazo_transito: prazos?.transito || 0,
+        prazo_alfandega: prazos?.alfandega || 0
       })
       .select()
       .single();
@@ -154,7 +157,7 @@ async function buscarPedidoPorId(id) {
 async function atualizarStatusPedido(id, novoStatus) {
   try {
     const statusValidos = ['pedido', 'fabricacao', 'transito', 'alfandega', 'recebido'];
-    
+
     if (!statusValidos.includes(novoStatus)) {
       throw new Error(`Status inválido: ${novoStatus}. Deve ser um de: ${statusValidos.join(', ')}`);
     }
@@ -183,7 +186,7 @@ async function atualizarStatusPedido(id, novoStatus) {
  */
 async function atualizarPedido(id, dadosAtualizados) {
   try {
-    const { fornecedor, valor, dataPedido, previsaoEntrega, observacoes, status } = dadosAtualizados;
+    const { fornecedor, valor, dataPedido, previsaoEntrega, observacoes, status, prazos } = dadosAtualizados;
 
     const dadosParaAtualizar = {};
     if (fornecedor !== undefined) dadosParaAtualizar.fornecedor = fornecedor;

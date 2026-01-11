@@ -11,6 +11,7 @@ import Metas from './pages/Metas';
 import Alertas from './pages/Alertas';
 import Configuracoes from './pages/Configuracoes';
 import Compras from './pages/Compras';
+import Financeiro from './pages/Financeiro';
 
 const router = createBrowserRouter([
   {
@@ -23,6 +24,7 @@ const router = createBrowserRouter([
       { path: '/compras', element: <Compras /> },
       { path: '/estoque', element: <Estoque /> },
       { path: '/metas', element: <Metas /> },
+      { path: '/financeiro', element: <Financeiro /> },
       // { path: '/produtos', element: <Produtos /> }, // ROTA OCULTA - Trabalhando apenas com Estoque
       { path: '/alertas', element: <Alertas /> },
       { path: '/configuracoes', element: <Configuracoes /> }

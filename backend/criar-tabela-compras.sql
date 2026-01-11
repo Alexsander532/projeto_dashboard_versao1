@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS pedidos_compra (
   previsao_entrega DATE,
   observacoes TEXT,
   status VARCHAR(50) DEFAULT 'pedido', -- pedido, fabricacao, transito, alfandega, recebido
+  prazo_fabricacao INTEGER DEFAULT 0,
+  prazo_transito INTEGER DEFAULT 0,
+  prazo_alfandega INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
