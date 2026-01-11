@@ -29,27 +29,22 @@ import {
 import { useSidebar } from '../contexts/SidebarContext';
 import {
   Add as AddIcon,
-  ArrowForward as ArrowForwardIcon,
-  ArrowBack as ArrowBackIcon,
   LocalShipping as LocalShippingIcon,
   Factory as FactoryIcon,
   Inventory as InventoryIcon,
   AttachMoney as AttachMoneyIcon,
   Schedule as ScheduleIcon,
-  Warning as WarningIcon,
   TrendingUp as TrendingUpIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon,
   Search as SearchIcon,
   FilterList as FilterListIcon,
-  Clear as ClearIcon,
-  History as HistoryIcon
+  Clear as ClearIcon
 } from '@mui/icons-material';
 import Sidebar from '../components/Sidebar';
 import CompraForm from '../components/CompraForm';
 import PrevisaoCompras from '../components/PrevisaoCompras';
 import { buscarPedidos, atualizarStatusPedido, deletarPedido, buscarMetricasFinanceiras } from '../services/comprasService';
 import PedidoDetalhesModal from '../components/PedidoDetalhesModal';
+import KanbanBoard from '../components/kanban/KanbanBoard';
 
 const colunas = [
   {
@@ -134,7 +129,7 @@ export default function Compras() {
 
       console.log('✅ Dados de compras carregados:', pedidosData);
       console.log('✅ Métricas carregadas:', metricasData);
-      
+
       setPedidos(pedidosData || []);
       setMetricas(metricasData || {
         totalPedidos: 0,
@@ -147,7 +142,7 @@ export default function Compras() {
       console.error('❌ Erro ao carregar dados:', error);
       console.error('❌ Detalhes do erro:', error.message);
       setErro(`Erro ao carregar pedidos: ${error.message || 'Verifique sua conexão.'}`);
-      
+
       // Inicializar com dados vazios para evitar tela branca
       setPedidos([]);
       setMetricas({
@@ -292,14 +287,20 @@ export default function Compras() {
     return indices[statusAtual];
   };
 
-  const getStatusAnterior = (statusAtual) => {
-    const indices = {
-      fabricacao: 'pedido',
-      transito: 'fabricacao',
-      alfandega: 'transito',
-      recebido: 'alfandega'
-    };
-    return indices[statusAtual];
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
+
+    const { draggableId, destination } = result;
+    const pedidoId = parseInt(draggableId);
+    const novoStatus = destination.droppableId;
+
+    // Encontrar o pedido atual
+    const pedido = pedidos.find(p => p.id === pedidoId);
+
+    // Verificar se houve mudança de status
+    if (pedido && pedido.status !== novoStatus) {
+      handleMoverPedido(pedidoId, novoStatus);
+    }
   };
 
   const formatarValor = (valor) => {
@@ -351,15 +352,15 @@ export default function Compras() {
   }
 
   return (
-  <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-    <Sidebar />
-    <Box sx={{
-      flexGrow: 1,
-      p: 3,
-      ml: isHovered ? '200px' : '64px',
-      transition: 'margin-left 0.3s ease'
-    }}>
-      {/* Mostrar erro se houver */}
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
+      <Sidebar />
+      <Box sx={{
+        flexGrow: 1,
+        p: 3,
+        ml: isHovered ? '200px' : '64px',
+        transition: 'margin-left 0.3s ease'
+      }}>
+        {/* Mostrar erro se houver */}
         {erro && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {erro}
@@ -642,199 +643,25 @@ export default function Compras() {
             </Paper>
           </Grid>
         </Grid>
-        <Grid container spacing={2}>
-          {colunas.map((coluna, index) => (
-            <Grid item xs={12} md={2.4} key={coluna.id}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: 2,
-                  borderRadius: '12px',
-                  height: '100%',
-                  bgcolor: `${coluna.cor}10`
-                }}
-              >
-                <Box sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  mb: 2,
-                  color: coluna.cor
-                }}>
-                  {coluna.icon}
-                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                    {coluna.titulo}
-                  </Typography>
-                  <Badge
-                    badgeContent={pedidos.filter(p => p.status === coluna.id).length}
-                    color="primary"
-                    sx={{ ml: 'auto' }}
-                  />
-                </Box>
-
-                <Box sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 2,
-                  minHeight: '500px'
-                }}>
-                  {pedidosFiltrados
-                    .filter(pedido => pedido.status === coluna.id)
-                    .map(pedido => (
-                      <Card
-                        key={pedido.id}
-                        sx={{
-                          bgcolor: 'background.paper',
-                          '&:hover': { transform: 'translateY(-2px)' },
-                          transition: 'transform 0.2s',
-                          borderLeft: estaAtrasado(pedido) ? '4px solid #f44336' : '4px solid transparent'
-                        }}
-                      >
-                        <CardContent>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 1 }}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                              Pedido #{pedido.id}
-                            </Typography>
-                            {estaAtrasado(pedido) && (
-                              <Tooltip title="Pedido atrasado!">
-                                <WarningIcon sx={{ color: '#f44336', fontSize: 20 }} />
-                              </Tooltip>
-                            )}
-                          </Box>
-
-                          {/* Data do Pedido - FASE 2 */}
-                          {(pedido.data_pedido || pedido.dataPedido) && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                              📅 {new Date(pedido.data_pedido || pedido.dataPedido).toLocaleDateString('pt-BR')}
-                            </Typography>
-                          )}
-
-                          {/* Previsão de Entrega - FASE 2 */}
-                          {(pedido.previsao_entrega || pedido.previsaoEntrega) && (
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                display: 'block',
-                                mb: 0.5,
-                                color: estaAtrasado(pedido) ? '#f44336' : 'text.secondary'
-                              }}
-                            >
-                              ⏰ Previsão: {new Date(pedido.previsao_entrega || pedido.previsaoEntrega).toLocaleDateString('pt-BR')}
-                            </Typography>
-                          )}
-
-                          {/* Dias em cada etapa - FASE 2 */}
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                            ⏱️ {calcularDiasEmEtapa(pedido)} dia(s) nesta etapa
-                          </Typography>
-
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                            Fornecedor: {pedido.fornecedor}
-                          </Typography>
-                          <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold', color: '#E91E63' }}>
-                            Valor: {formatarValor(pedido.valor)}
-                          </Typography>
-                          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-                            {(pedido.produtos || pedido.itens || []).map((prod, idx) => (
-                              <Chip
-                                key={idx}
-                                label={`${prod.sku} (${prod.quantidade})`}
-                                size="small"
-                                sx={{ bgcolor: `${coluna.cor}20` }}
-                              />
-                            ))}
-                          </Box>
-                          <Box sx={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            mt: 1,
-                            gap: 0.5
-                          }}>
-                            {/* Botão para voltar */}
-                            {index > 0 && (
-                              <Tooltip title="Voltar para etapa anterior">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleMoverPedido(pedido.id, getStatusAnterior(pedido.status))}
-                                  sx={{
-                                    color: colunas[index - 1].cor,
-                                    '&:hover': { bgcolor: `${colunas[index - 1].cor}20` }
-                                  }}
-                                >
-                                  <ArrowBackIcon />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-
-                            {/* Botão para avançar */}
-                            {pedido.status !== 'recebido' && (
-                              <Tooltip title="Avançar para próxima etapa">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleMoverPedido(pedido.id, getProximoStatus(pedido.status))}
-                                  sx={{
-                                    color: coluna.cor,
-                                    '&:hover': { bgcolor: `${coluna.cor}20` }
-                                  }}
-                                >
-                                  <ArrowForwardIcon />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-
-                            {/* Botão para editar */}
-                            <Tooltip title="Editar pedido">
-                              <IconButton
-                                size="small"
-                                color="primary"
-                                onClick={() => handleEditarPedido(pedido)}
-                                sx={{
-                                  '&:hover': { bgcolor: '#e3f2fd' }
-                                }}
-                              >
-                                <EditIcon />
-                              </IconButton>
-                            </Tooltip>
-
-                            {/* Botão para ver histórico */}
-                            <Tooltip title="Ver histórico">
-                              <IconButton
-                                size="small"
-                                color="info"
-                                onClick={() => handleVerHistorico(pedido)}
-                                sx={{
-                                  '&:hover': { bgcolor: '#e1f5fe' }
-                                }}
-                              >
-                                <HistoryIcon />
-                              </IconButton>
-                            </Tooltip>
-
-                            {/* Botão para deletar */}
-                            <Tooltip title="Deletar pedido">
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={() => setPedidoParaDeletar(pedido)}
-                                sx={{
-                                  '&:hover': { bgcolor: '#ffebee' }
-                                }}
-                              >
-                                <DeleteIcon />
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
-                        </CardContent>
-                      </Card>
-                    ))}
-                </Box>
-              </Paper>
-            </Grid>
-          ))}
-        </Grid>
+        <Box sx={{ flexGrow: 1, minHeight: 0, overflow: 'hidden' }}>
+          <KanbanBoard
+            pedidos={pedidosFiltrados}
+            colunas={colunas}
+            onDragEnd={handleDragEnd}
+            onEdit={handleEditarPedido}
+            onDelete={(pedido) => {
+              setPedidoParaDeletar(pedido);
+              setDeletando(true); // Ou abrir um dialog de confirmação se já não houver
+            }}
+            onHistory={handleVerHistorico}
+            estaAtrasado={estaAtrasado}
+            formatarValor={formatarValor}
+            calcularDiasEmEtapa={calcularDiasEmEtapa}
+          />
+        </Box>
 
         {/* Previsão de Compras */}
-        <PrevisaoCompras onAddToPedido={(produto) => {
+        < PrevisaoCompras onAddToPedido={(produto) => {
           setProdutoParaAdicionar(produto);
           setFormOpen(true);
         }} />
@@ -862,8 +689,8 @@ export default function Compras() {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setPedidoParaDeletar(null)}>Cancelar</Button>
-            <Button 
-              color="error" 
+            <Button
+              color="error"
               variant="contained"
               onClick={handleDeletePedido}
               disabled={deletando}
@@ -881,7 +708,7 @@ export default function Compras() {
           onPedidoAtualizado={carregarDados}
           abaInicial={abaInicialModal}
         />
-      </Box>
-    </Box>
+      </Box >
+    </Box >
   );
 }

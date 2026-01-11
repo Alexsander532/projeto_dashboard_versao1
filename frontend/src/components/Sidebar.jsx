@@ -14,6 +14,7 @@ import {
   Inventory as InventoryIcon,
   Assessment as AssessmentIcon,
   LocalShipping as LocalShippingIcon,
+  AttachMoney as AttachMoneyIcon,
   Notifications as NotificationsIcon,
   Settings as SettingsIcon,
   ShoppingBasket as ShoppingBasketIcon,
@@ -34,6 +35,7 @@ export default function Sidebar() {
     { text: 'Metas', icon: <AssessmentIcon />, path: '/metas' },
     // { text: 'Produtos', icon: <ShoppingBasketIcon />, path: '/produtos' }, // ITEM OCULTO - Trabalhando apenas com Estoque
     { text: 'Compras', icon: <LocalShippingIcon />, path: '/compras' },
+    { text: 'Financeiro', icon: <AttachMoneyIcon />, path: '/financeiro' },
     { text: 'Alertas', icon: <NotificationsIcon />, path: '/alertas' },
     { text: 'Configurações', icon: <SettingsIcon />, path: '/configuracoes' },
   ];
@@ -73,7 +75,7 @@ export default function Sidebar() {
               justifyContent: isHovered ? 'flex-start' : 'center',
               px: isHovered ? 2 : 1,
               mb: 0.5,
-              backgroundColor: location.pathname === item.path ? 
+              backgroundColor: location.pathname === item.path ?
                 'rgba(0, 0, 0, 0.04)' : 'transparent',
               '&:hover': {
                 backgroundColor: 'rgba(0, 0, 0, 0.04)',
@@ -96,7 +98,7 @@ export default function Sidebar() {
             <ListItemIcon
               sx={{
                 minWidth: isHovered ? 32 : 'auto',
-                color: location.pathname === item.path ? 
+                color: location.pathname === item.path ?
                   theme.palette.primary.main : theme.palette.text.secondary,
                 '& .MuiSvgIcon-root': {
                   fontSize: 20,
@@ -106,7 +108,7 @@ export default function Sidebar() {
               {item.icon}
             </ListItemIcon>
             {isHovered && (
-              <ListItemText 
+              <ListItemText
                 primary={item.text}
                 sx={{
                   opacity: 1,
